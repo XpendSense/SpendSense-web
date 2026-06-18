@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node"],
+    "moduleResolution": "node",
+    "jsx": "react-jsx"
+  },
+  "include": ["jest.setup.ts", "src/**/__tests__/**/*.ts", "src/**/__tests__/**/*.tsx"]
+}
