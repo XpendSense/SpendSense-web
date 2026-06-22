@@ -40,6 +40,11 @@ export function IncomePanel({ budgetId }: Props) {
     queryFn: () => client.listIncomeEntries({ budgetId }),
   })
 
+  const { data: peopleData } = useQuery({
+    queryKey: ['budget-people', budgetId],
+    queryFn: () => client.listBudgetPeople({ budgetId }),
+  })
+
   const { mutateAsync: doDelete } = useMutation({
     mutationFn: (id: bigint) => client.deleteIncomeEntry({ id, budgetId }),
   })
@@ -55,6 +60,8 @@ export function IncomePanel({ budgetId }: Props) {
   }
 
   const entries = data?.entries ?? []
+  const people = peopleData?.people ?? []
+  const personMap = new Map(people.map((p) => [p.id.toString(), p.userName]))
   const total = entries.reduce((sum, e) => sum + Number(e.amount?.units ?? 0) + (e.amount?.nanos ?? 0) / 1e9, 0)
 
   if (isLoading) return <CircularProgress size={20} />
@@ -76,27 +83,37 @@ export function IncomePanel({ budgetId }: Props) {
         <Typography variant="body2" color="text.secondary">No income entries yet.</Typography>
       ) : (
         <List dense disablePadding>
-          {entries.map((entry) => (
-            <ListItem
-              key={entry.id.toString()}
-              disableGutters
-              secondaryAction={
-                <Box>
-                  <IconButton size="small" onClick={() => setEditingEntry(entry)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(entry.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              }
-            >
-              <ListItemText
-                primary={entry.name}
-                secondary={formatMoney(entry.amount?.units ?? 0n, entry.amount?.nanos ?? 0)}
-              />
-            </ListItem>
-          ))}
+          {entries.map((entry) => {
+            const personName = entry.budgetPersonId !== 0n
+              ? personMap.get(entry.budgetPersonId.toString())
+              : undefined
+            return (
+              <ListItem
+                key={entry.id.toString()}
+                disableGutters
+                secondaryAction={
+                  <Box>
+                    <IconButton size="small" onClick={() => setEditingEntry(entry)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(entry.id)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                }
+              >
+                <ListItemText
+                  primary={entry.name}
+                  secondary={
+                    <>
+                      {formatMoney(entry.amount?.units ?? 0n, entry.amount?.nanos ?? 0)}
+                      {personName && <> · {personName}</>}
+                    </>
+                  }
+                />
+              </ListItem>
+            )
+          })}
         </List>
       )}
 

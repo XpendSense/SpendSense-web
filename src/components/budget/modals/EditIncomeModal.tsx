@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { IncomeEntry } from '@/gen/spendsense/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
@@ -16,6 +16,10 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import InputLabel from '@mui/material/InputLabel'
+import FormControl from '@mui/material/FormControl'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 
@@ -37,17 +41,26 @@ export function EditIncomeModal({ budgetId, entry, onClose, onDone }: Props) {
     return total.toString()
   })
   const [recurring, setRecurring] = useState(entry.recurring)
+  const [budgetPersonId, setBudgetPersonId] = useState<bigint>(entry.budgetPersonId)
 
   useEffect(() => {
     setName(entry.name)
     const total = Number(entry.amount?.units ?? 0n) + (entry.amount?.nanos ?? 0) / 1e9
     setAmount(total.toString())
     setRecurring(entry.recurring)
+    setBudgetPersonId(entry.budgetPersonId)
   }, [entry])
 
   const client = useClient(BudgetService)
+
+  const { data: peopleData } = useQuery({
+    queryKey: ['budget-people', budgetId],
+    queryFn: () => client.listBudgetPeople({ budgetId }),
+  })
+  const people = peopleData?.people ?? []
+
   const { mutateAsync, isPending } = useMutation({
-    mutationFn: (vars: { name: string; amount: { units: bigint; nanos: number }; recurring: boolean }) =>
+    mutationFn: (vars: { name: string; amount: { units: bigint; nanos: number }; recurring: boolean; budgetPersonId: bigint }) =>
       client.updateIncomeEntry({ id: entry.id, budgetId, ...vars }),
   })
 
@@ -56,7 +69,7 @@ export function EditIncomeModal({ budgetId, entry, onClose, onDone }: Props) {
     const units = Math.floor(parseFloat(amount))
     const nanos = Math.round((parseFloat(amount) - units) * 1e9)
     try {
-      await mutateAsync({ name, amount: { units: BigInt(units), nanos }, recurring })
+      await mutateAsync({ name, amount: { units: BigInt(units), nanos }, recurring, budgetPersonId })
       logger.info('budget.income.update', { budgetId, id: entry.id.toString(), name })
       onDone()
     } catch (err) {
@@ -88,6 +101,23 @@ export function EditIncomeModal({ budgetId, entry, onClose, onDone }: Props) {
             control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
             label="Recurring monthly"
           />
+          {people.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Attributed to</InputLabel>
+              <Select
+                label="Attributed to"
+                value={budgetPersonId.toString()}
+                onChange={(e) => setBudgetPersonId(BigInt(e.target.value))}
+              >
+                <MenuItem value="0">Unattributed</MenuItem>
+                {people.map((p) => (
+                  <MenuItem key={p.id.toString()} value={p.id.toString()}>
+                    {p.userName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
