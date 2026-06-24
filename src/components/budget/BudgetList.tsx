@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import { useClient } from '@/hooks/useClient'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
+import { formatError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -23,13 +24,24 @@ export function BudgetList() {
   const [setupOpen, setSetupOpen] = useState(false)
   const client = useClient(BudgetService)
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['budgets', 'list'],
     queryFn: () => client.listBudgets({}),
   })
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+  }
+
+  if (isError) {
+    const message = formatError(error)
+    logger.error('budget.list.failed', { error: message })
+    return (
+      <Box sx={{ textAlign: 'center', py: 8 }}>
+        <Typography color="error" mb={2}>{message}</Typography>
+        <Button variant="outlined" onClick={() => refetch()}>Retry</Button>
+      </Box>
+    )
   }
 
   const budgets = data?.budgets ?? []

@@ -25,7 +25,7 @@ Run `make run` in `SpendSense-backend/` to start the API on port 8080.
 
 ## Architecture
 
-- **Next.js 14 App Router** — `src/app/` with route groups `(auth)` and `(app)`
+- **Next.js 16 App Router** — `src/app/` with route groups `(auth)` and `(app)`
 - **Auth** — JWT stored as `httpOnly` cookie; set via `/api/auth/set-token`, cleared via `/api/auth/logout`
 - **ConnectRPC** — transport created in `AuthContext` with `Authorization: Bearer` interceptor; hooks via `@connectrpc/connect-query`
 - **MUI v5** — theme and emotion cache configured in `ThemeRegistry`

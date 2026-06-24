@@ -42,8 +42,8 @@ export function AddTransactionModal({ budgetId, open, embedded, onClose, onSkip,
     queryFn: () => client.listCategories({}),
   })
   const { data: methodsData } = useQuery({
-    queryKey: ['paymentMethods'],
-    queryFn: () => client.listPaymentMethods({}),
+    queryKey: ['paymentMethods', budgetId],
+    queryFn: () => client.listPaymentMethods({ budgetId }),
   })
   const { mutateAsync, isPending } = useMutation({
     mutationFn: (vars: {

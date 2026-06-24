@@ -1,4 +1,5 @@
 import { createConnectTransport } from '@connectrpc/connect-web'
+import { ConnectError, Code } from '@connectrpc/connect'
 import type { Transport } from '@connectrpc/connect'
 
 export function createTransport(token: string): Transport {
@@ -8,6 +9,17 @@ export function createTransport(token: string): Transport {
       (next) => (req) => {
         req.header.set('Authorization', `Bearer ${token}`)
         return next(req)
+      },
+      (next) => async (req) => {
+        try {
+          return await next(req)
+        } catch (err) {
+          if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+            window.location.href = '/login'
+          }
+          throw err
+        }
       },
     ],
   })

@@ -23,6 +23,9 @@ import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
+import InputLabel from '@mui/material/InputLabel'
+import FormControl from '@mui/material/FormControl'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -52,6 +55,7 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<PaymentType>(PaymentType.DEBIT)
+  const [newPersonId, setNewPersonId] = useState<bigint>(0n)
 
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null)
   const [editName, setEditName] = useState('')
@@ -62,12 +66,18 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
   const client = useClient(BudgetService)
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['paymentMethods'],
-    queryFn: () => client.listPaymentMethods({}),
+    queryKey: ['paymentMethods', budgetId],
+    queryFn: () => client.listPaymentMethods({ budgetId }),
+  })
+
+  const { data: peopleData } = useQuery({
+    queryKey: ['budget-people', budgetId],
+    queryFn: () => client.listBudgetPeople({ budgetId }),
   })
 
   const { mutateAsync: doCreate, isPending: isCreating } = useMutation({
-    mutationFn: (vars: { name: string; type: PaymentType }) => client.createPaymentMethod(vars),
+    mutationFn: (vars: { name: string; type: PaymentType; budgetPersonId: bigint }) =>
+      client.createPaymentMethod(vars),
   })
 
   const { mutateAsync: doUpdate, isPending: isUpdating } = useMutation({
@@ -80,10 +90,11 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
 
   async function handleCreate() {
     try {
-      await doCreate({ name: newName, type: newType })
-      logger.info('paymentMethod.create', { name: newName })
+      await doCreate({ name: newName, type: newType, budgetPersonId: newPersonId })
+      logger.info('paymentMethod.create', { name: newName, budgetPersonId: newPersonId.toString() })
       showSuccess(`Payment method "${newName}" added`)
       setNewName('')
+      setNewPersonId(0n)
       setAddOpen(false)
       refetch()
     } catch (err) {
@@ -130,6 +141,8 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
   if (isLoading) return <CircularProgress size={20} />
 
   const methods = data?.methods ?? []
+  const people = peopleData?.people ?? []
+  const personMap = new Map(people.map((p) => [p.id.toString(), p.userName]))
 
   return (
     <Box>
@@ -144,40 +157,54 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
         <Typography variant="body2" color="text.secondary">No payment methods yet.</Typography>
       ) : (
         <List dense disablePadding>
-          {methods.map((m) => (
-            <ListItem
-              key={m.id}
-              disableGutters
-              secondaryAction={
-                <Box>
-                  <Tooltip title="Rename">
-                    <IconButton size="small" onClick={() => openEdit(m)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Deactivate">
-                    <span>
-                      <IconButton
-                        size="small"
-                        onClick={() => openDelete(m)}
-                        disabled={methods.length <= 1}
-                      >
-                        <DeleteIcon fontSize="small" />
+          {methods.map((m) => {
+            const personName = m.budgetPersonId !== 0n
+              ? personMap.get(m.budgetPersonId.toString())
+              : undefined
+            return (
+              <ListItem
+                key={m.id}
+                disableGutters
+                secondaryAction={
+                  <Box>
+                    <Tooltip title="Rename">
+                      <IconButton size="small" onClick={() => openEdit(m)}>
+                        <EditIcon fontSize="small" />
                       </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
-              }
-            >
-              <ListItemText primary={m.name} />
-              <Chip label={PaymentType[m.type]} size="small" variant="outlined" sx={{ mr: 4 }} />
-            </ListItem>
-          ))}
+                    </Tooltip>
+                    <Tooltip title="Deactivate">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => openDelete(m)}
+                          disabled={methods.length <= 1}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                }
+              >
+                <ListItemText
+                  primary={m.name}
+                  secondary={personName ?? undefined}
+                />
+                <Chip label={PaymentType[m.type]} size="small" variant="outlined" sx={{ mr: 4 }} />
+              </ListItem>
+            )
+          })}
         </List>
       )}
 
       {/* Add dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="xs" fullWidth fullScreen={fullScreen}>
+      <Dialog
+        open={addOpen}
+        onClose={() => { setAddOpen(false); setNewName(''); setNewPersonId(0n) }}
+        maxWidth="xs"
+        fullWidth
+        fullScreen={fullScreen}
+      >
         <DialogTitle>Add Payment Method</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -199,11 +226,27 @@ export function PaymentMethodsPanel({ budgetId }: Props) {
                 <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
               ))}
             </TextField>
+            <FormControl fullWidth size="small" required>
+              <InputLabel>Owner *</InputLabel>
+              <Select
+                label="Owner *"
+                value={newPersonId.toString()}
+                onChange={(e) => setNewPersonId(BigInt(e.target.value))}
+                displayEmpty
+              >
+                <MenuItem value="0" disabled><em>Select a person</em></MenuItem>
+                {people.map((p) => (
+                  <MenuItem key={p.id.toString()} value={p.id.toString()}>
+                    {p.userName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddOpen(false)} color="inherit">Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!newName.trim() || isCreating}>
+          <Button onClick={() => { setAddOpen(false); setNewName(''); setNewPersonId(0n) }} color="inherit">Cancel</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={!newName.trim() || newPersonId === 0n || isCreating}>
             {isCreating ? 'Adding…' : 'Add'}
           </Button>
         </DialogActions>

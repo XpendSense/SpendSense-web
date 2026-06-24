@@ -13,6 +13,8 @@ import Stack from '@mui/material/Stack'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
 import Tooltip from '@mui/material/Tooltip'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Checkbox from '@mui/material/Checkbox'
 import Link from '@mui/material/Link'
 import NextLink from 'next/link'
 
@@ -22,6 +24,7 @@ export function LoginForm() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,7 +37,7 @@ export function LoginForm() {
       await fetch('/api/auth/set-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: res.accessToken }),
+        body: JSON.stringify({ token: res.accessToken, rememberMe }),
       })
       logger.info('auth.login')
       router.push('/budgets')
@@ -66,6 +69,10 @@ export function LoginForm() {
         required
         fullWidth
         autoComplete="current-password"
+      />
+      <FormControlLabel
+        control={<Checkbox checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} size="small" />}
+        label={<Typography variant="body2">Remember me for 30 days</Typography>}
       />
       {error && (
         <Typography variant="body2" color="error">

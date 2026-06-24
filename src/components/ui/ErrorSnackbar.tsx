@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, useCallback } from 'react'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
-import { ConnectError } from '@connectrpc/connect'
+import { formatError } from '@/lib/errors'
 
 interface SnackbarContextValue {
   showError: (err: unknown) => void
@@ -11,12 +11,6 @@ interface SnackbarContextValue {
 }
 
 const SnackbarContext = createContext<SnackbarContextValue | null>(null)
-
-function formatError(err: unknown): string {
-  if (err instanceof ConnectError) return err.message
-  if (err instanceof Error) return err.message
-  return 'An unexpected error occurred'
-}
 
 export function SnackbarProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<{ open: boolean; message: string; severity: 'error' | 'success' }>({

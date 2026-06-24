@@ -60,7 +60,7 @@ describe('LoginForm', () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/auth/set-token', expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ token: 'abc123' }),
+        body: JSON.stringify({ token: 'abc123', rememberMe: false }),
       }))
     })
   })
