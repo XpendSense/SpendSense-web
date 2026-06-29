@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { IncomeSource } from '@/gen/spendsense/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
@@ -33,6 +33,7 @@ function formatMoney(units: bigint, nanos: number): string {
 export function IncomePanel({ budgetProfileId, showBeforeTax }: Props) {
   const { showError } = useSnackbar()
   const client = useClient(BudgetService)
+  const queryClient = useQueryClient()
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
   const [addOpen, setAddOpen] = useState(false)
 
@@ -50,11 +51,16 @@ export function IncomePanel({ budgetProfileId, showBeforeTax }: Props) {
     mutationFn: (id: bigint) => client.deleteIncomeSource({ id, budgetProfileId }),
   })
 
+  function invalidateSavings() {
+    queryClient.invalidateQueries({ queryKey: ['savings-sources', budgetProfileId] })
+  }
+
   async function handleDelete(id: bigint) {
     try {
       await doDelete(id)
       logger.info('income.delete', { budgetProfileId, id: id.toString() })
       refetch()
+      invalidateSavings()
     } catch (err) {
       showError(err)
     }
@@ -126,7 +132,7 @@ export function IncomePanel({ budgetProfileId, showBeforeTax }: Props) {
           budgetProfileId={budgetProfileId}
           showBeforeTax={showBeforeTax}
           onClose={() => setAddOpen(false)}
-          onDone={() => { setAddOpen(false); refetch() }}
+          onDone={() => { setAddOpen(false); refetch(); invalidateSavings() }}
         />
       )}
 
@@ -139,6 +145,7 @@ export function IncomePanel({ budgetProfileId, showBeforeTax }: Props) {
           onDone={() => {
             setEditingSource(null)
             refetch()
+            invalidateSavings()
           }}
         />
       )}

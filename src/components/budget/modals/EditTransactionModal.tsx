@@ -96,7 +96,7 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
   })
 
   async function handleSave() {
-    if (!name.trim() || !amount || !date) return
+    if (!name.trim() || !amount || !date || !paymentMethodId) return
     const units = Math.floor(parseFloat(amount))
     const nanos = Math.round((parseFloat(amount) - units) * 1e9)
     try {
@@ -173,8 +173,8 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
             value={paymentMethodId}
             onChange={(e) => setPaymentMethodId(e.target.value)}
             fullWidth
+            required
           >
-            <MenuItem value="">— None —</MenuItem>
             {(methodsData?.methods ?? []).map((m) => (
               <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
             ))}
@@ -190,7 +190,7 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={!name.trim() || !amount || !date || isPending}
+          disabled={!name.trim() || !amount || !date || !paymentMethodId || isPending}
         >
           {isPending ? 'Saving…' : 'Save'}
         </Button>

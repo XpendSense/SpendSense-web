@@ -110,7 +110,6 @@ export function AddIncomeDialog({ budgetProfileId, showBeforeTax, onClose, onDon
                 value={budgetPersonId.toString()}
                 onChange={(e) => setBudgetPersonId(BigInt(e.target.value))}
               >
-                <MenuItem value="0">Unattributed</MenuItem>
                 {people.map((p) => (
                   <MenuItem key={p.id.toString()} value={p.id.toString()}>
                     {p.userName}

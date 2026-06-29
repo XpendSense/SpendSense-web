@@ -33,9 +33,19 @@ function todayString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function todayDay(): number {
+  return new Date().getDate()
+}
+
 function dateStringToTimestamp(str: string): { seconds: bigint; nanos: number } {
   const [year, month, day] = str.split('-').map(Number)
   const d = new Date(year, month - 1, day, 12)
+  return { seconds: BigInt(Math.floor(d.getTime() / 1000)), nanos: 0 }
+}
+
+function dayOfMonthToTimestamp(day: number): { seconds: bigint; nanos: number } {
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth(), day, 12)
   return { seconds: BigInt(Math.floor(d.getTime() / 1000)), nanos: 0 }
 }
 
@@ -44,11 +54,14 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayString)
+  const [dayOfMonth, setDayOfMonth] = useState(todayDay)
   const [categoryId, setCategoryId] = useState<number>(0)
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [typeId, setTypeId] = useState<number>(1)
   const [recurring, setRecurring] = useState(false)
   const client = useClient(BudgetService)
+
+  const isFixed = typeId === 1
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -71,15 +84,19 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     }) => client.createTransaction({ budgetPeriodId, plannedAmount: vars.amount, ...vars }),
   })
 
+  const isDateValid = isFixed ? dayOfMonth >= 1 && dayOfMonth <= 31 : !!date
+  const canSave = !!name.trim() && !!amount && !!paymentMethodId && isDateValid
+
   async function handleSave() {
-    if (!name.trim() || !amount || !date) return
+    if (!canSave) return
     const units = Math.floor(parseFloat(amount))
     const nanos = Math.round((parseFloat(amount) - units) * 1e9)
+    const txDate = isFixed ? dayOfMonthToTimestamp(dayOfMonth) : dateStringToTimestamp(date)
     try {
       await mutateAsync({
         name,
         amount: { units: BigInt(units), nanos },
-        date: dateStringToTimestamp(date),
+        date: txDate,
         categoryId,
         paymentMethodId,
         transactionTypeId: typeId,
@@ -87,6 +104,14 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         recurring,
       })
       logger.info('transaction.create', { budgetPeriodId, name, amount })
+      setName('')
+      setAmount('')
+      setDate(todayString())
+      setDayOfMonth(todayDay())
+      setCategoryId(0)
+      setPaymentMethodId('')
+      setTypeId(1)
+      setRecurring(false)
       onDone()
     } catch (err) {
       showError(err)
@@ -109,35 +134,48 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         fullWidth
         inputProps={{ min: 0, step: '0.01' }}
       />
-      <TextField
-        label="Date"
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        fullWidth
-        required
-        InputLabelProps={{ shrink: true }}
-      />
       <TextField select label="Type" value={typeId} onChange={(e) => setTypeId(Number(e.target.value))} fullWidth>
         <MenuItem value={1}>Fixed</MenuItem>
         <MenuItem value={2}>Variable</MenuItem>
       </TextField>
+      {isFixed ? (
+        <TextField
+          label="Day of month"
+          type="number"
+          value={dayOfMonth}
+          onChange={(e) => setDayOfMonth(Math.min(31, Math.max(1, Number(e.target.value))))}
+          fullWidth
+          inputProps={{ min: 1, max: 31 }}
+          helperText="Which day of the month this expense falls on"
+        />
+      ) : (
+        <TextField
+          label="Date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          fullWidth
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
       <TextField select label="Category" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} fullWidth>
         <MenuItem value={0}>— None —</MenuItem>
         {(categoriesData?.categories ?? []).map((c) => (
           <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
         ))}
       </TextField>
-      <TextField select label="Payment method" value={paymentMethodId} onChange={(e) => setPaymentMethodId(e.target.value)} fullWidth>
-        <MenuItem value="">— None —</MenuItem>
+      <TextField select label="Payment method" value={paymentMethodId} onChange={(e) => setPaymentMethodId(e.target.value)} fullWidth required>
         {(methodsData?.methods ?? []).map((m) => (
           <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
         ))}
       </TextField>
-      <FormControlLabel
-        control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
-        label="Recurring"
-      />
+      {!isFixed && (
+        <FormControlLabel
+          control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
+          label="Recurring"
+        />
+      )}
     </Stack>
   )
 
@@ -147,7 +185,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         {form}
         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
           {onSkip && <Button onClick={onSkip} color="inherit">Skip</Button>}
-          <Button variant="contained" onClick={handleSave} disabled={!name.trim() || !amount || !date || isPending}>
+          <Button variant="contained" onClick={handleSave} disabled={!canSave || isPending}>
             {isPending ? 'Saving…' : 'Save & Finish'}
           </Button>
         </Stack>
@@ -161,7 +199,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
       <DialogContent sx={{ pt: 2 }}>{form}</DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!name.trim() || !amount || !date || isPending}>
+        <Button variant="contained" onClick={handleSave} disabled={!canSave || isPending}>
           {isPending ? 'Saving…' : 'Add'}
         </Button>
       </DialogActions>

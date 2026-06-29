@@ -151,6 +151,12 @@ export function SavingsPanel({ budgetProfileId }: Props) {
                   secondary={
                     <>
                       {formatMoney(src.amount?.units ?? 0n, src.amount?.nanos ?? 0)}
+                      {src.isTaxReserve && src.federalAmount && src.stateAmount && (
+                        <> · Fed: {formatMoney(src.federalAmount.units, src.federalAmount.nanos)} · State: {formatMoney(src.stateAmount.units, src.stateAmount.nanos)}</>
+                      )}
+                      {src.isTaxReserve && src.federalAmount && !src.stateAmount && (
+                        <> · Fed: {formatMoney(src.federalAmount.units, src.federalAmount.nanos)}</>
+                      )}
                       {personName && <> · {personName}</>}
                     </>
                   }

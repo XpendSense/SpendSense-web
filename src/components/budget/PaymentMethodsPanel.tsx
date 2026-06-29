@@ -46,9 +46,10 @@ const PAYMENT_TYPES = [
 
 interface Props {
   budgetProfileId: string
+  budgetPeriodId?: string
 }
 
-export function PaymentMethodsPanel({ budgetProfileId }: Props) {
+export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId }: Props) {
   const { showError, showSuccess } = useSnackbar()
   const theme = useTheme()
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
@@ -76,6 +77,12 @@ export function PaymentMethodsPanel({ budgetProfileId }: Props) {
   const { data: peopleData } = useQuery({
     queryKey: ['budget-people', budgetProfileId],
     queryFn: () => client.listBudgetPeople({ budgetProfileId }),
+  })
+
+  const { data: transactionsData } = useQuery({
+    queryKey: ['transactions', budgetPeriodId],
+    queryFn: () => client.listTransactions({ budgetPeriodId: budgetPeriodId! }),
+    enabled: !!budgetPeriodId,
   })
 
   const { mutateAsync: doCreate, isPending: isCreating } = useMutation({
@@ -113,7 +120,21 @@ export function PaymentMethodsPanel({ budgetProfileId }: Props) {
     setEditColor(method.color)
   }
 
-  function openDelete(method: PaymentMethod) {
+  async function openDelete(method: PaymentMethod) {
+    const hasTransactions = transactions.some((t) => t.paymentMethodId === method.id)
+    if (!hasTransactions) {
+      const replacement = methods.find((m) => m.id !== method.id)
+      if (!replacement) return
+      try {
+        await doDelete({ id: method.id, replacementId: replacement.id, budgetProfileId })
+        logger.info('paymentMethod.deactivate', { id: method.id, replacementId: replacement.id, budgetProfileId })
+        showSuccess(`"${method.name}" deactivated`)
+        refetch()
+      } catch (err) {
+        showError(err)
+      }
+      return
+    }
     setDeletingMethod(method)
     setReplacementId('')
   }
@@ -148,6 +169,7 @@ export function PaymentMethodsPanel({ budgetProfileId }: Props) {
 
   const methods = data?.methods ?? []
   const people = peopleData?.people ?? []
+  const transactions = transactionsData?.transactions ?? []
   const personMap = new Map(people.map((p) => [p.id.toString(), p.userName]))
 
   return (
@@ -292,9 +314,14 @@ export function PaymentMethodsPanel({ budgetProfileId }: Props) {
             >
               {methods
                 .filter((m) => m.id !== deletingMethod?.id)
-                .map((m) => (
-                  <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
-                ))}
+                .map((m) => {
+                  const owner = m.budgetPersonId !== 0n ? personMap.get(m.budgetPersonId.toString()) : undefined
+                  return (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.name}{owner ? ` · ${owner}` : ''}
+                    </MenuItem>
+                  )
+                })}
             </TextField>
           </Box>
         </DialogContent>

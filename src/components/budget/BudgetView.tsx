@@ -8,6 +8,7 @@ import { IncomePanel } from './IncomePanel'
 import { SavingsPanel } from './SavingsPanel'
 import { PaymentMethodsPanel } from './PaymentMethodsPanel'
 import { TransactionsPanel } from './TransactionsPanel'
+import { ExpensesPanel } from './ExpensesPanel'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -69,7 +70,7 @@ export function BudgetView({ budgetId }: Props) {
           <SavingsPanel budgetProfileId={budgetId} />
         </Box>
         <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
-          <PaymentMethodsPanel budgetProfileId={budgetId} />
+          <PaymentMethodsPanel budgetProfileId={budgetId} budgetPeriodId={activePeriod?.id} />
         </Box>
       </Box>
 
@@ -81,6 +82,12 @@ export function BudgetView({ budgetId }: Props) {
         ) : (
           <Typography variant="body2" color="text.secondary">No active period found.</Typography>
         )}
+      </Box>
+
+      <Divider />
+
+      <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+        <ExpensesPanel budgetProfileId={budgetId} budgetPeriodId={activePeriod?.id} />
       </Box>
     </Box>
   )
