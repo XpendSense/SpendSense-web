@@ -75,6 +75,19 @@ export function RegisterForm() {
     })
   }, [])
 
+  async function handleGoogleSignIn() {
+    const state = crypto.randomUUID()
+    sessionStorage.setItem('google_oauth_state', state)
+    try {
+      const res = await authClient.getGoogleAuthURL({ state })
+      window.location.href = res.url
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to initiate Google sign-in'
+      setError(message)
+      logger.error('auth.google.initiate.failed', { error: message })
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -216,18 +229,19 @@ export function RegisterForm() {
 
       <Divider>or</Divider>
 
-      <Tooltip title="Google sign-in is not available yet" placement="top">
-        <span>
-          <Button
-            variant="outlined"
-            fullWidth
-            disabled={!isEnabled('googleAuth')}
-            sx={{ pointerEvents: isEnabled('googleAuth') ? 'auto' : 'none', opacity: 0.5 }}
-          >
-            Continue with Google
-          </Button>
-        </span>
-      </Tooltip>
+      {isEnabled('googleAuth') ? (
+        <Button variant="outlined" fullWidth onClick={handleGoogleSignIn} disabled={loading}>
+          Continue with Google
+        </Button>
+      ) : (
+        <Tooltip title="Google sign-in is not available yet" placement="top">
+          <span>
+            <Button variant="outlined" fullWidth disabled sx={{ pointerEvents: 'none', opacity: 0.5 }}>
+              Continue with Google
+            </Button>
+          </span>
+        </Tooltip>
+      )}
 
       <Typography variant="body2" textAlign="center">
         Already have an account?{' '}

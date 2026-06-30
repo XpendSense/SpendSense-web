@@ -72,8 +72,10 @@ export function EditIncomeModal({ budgetProfileId, source, showBeforeTax, onClos
     }) => client.updateIncomeSource({ id: source.id, budgetProfileId, ...vars }),
   })
 
+  const amountError = amount !== '' && parseFloat(amount) <= 0 ? 'Amount must be greater than zero' : ''
+
   async function handleSave() {
-    if (!name.trim() || !amount) return
+    if (!name.trim() || !amount || amountError) return
     const units = Math.floor(parseFloat(amount))
     const nanos = Math.round((parseFloat(amount) - units) * 1e9)
     try {
@@ -104,6 +106,8 @@ export function EditIncomeModal({ budgetProfileId, source, showBeforeTax, onClos
             onChange={(e) => setAmount(e.target.value)}
             fullWidth
             inputProps={{ min: 0, step: '0.01' }}
+            error={!!amountError}
+            helperText={amountError}
           />
           <FormControlLabel
             control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
@@ -138,7 +142,7 @@ export function EditIncomeModal({ budgetProfileId, source, showBeforeTax, onClos
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={!name.trim() || !amount || isPending}
+          disabled={!name.trim() || !amount || !!amountError || isPending}
         >
           {isPending ? 'Saving…' : 'Save'}
         </Button>

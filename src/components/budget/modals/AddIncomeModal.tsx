@@ -57,8 +57,10 @@ export function AddIncomeModal({ budgetProfileId, showBeforeTax, onSkip, onDone 
     }) => client.addIncomeSource({ budgetProfileId, incomeType: IncomeType.SALARY, ...vars }),
   })
 
+  const amountError = amount !== '' && parseFloat(amount) <= 0 ? 'Amount must be greater than zero' : ''
+
   async function handleAdd() {
-    if (!name.trim() || !amount) return
+    if (!name.trim() || !amount || amountError) return
     const units = Math.floor(parseFloat(amount))
     const nanos = Math.round((parseFloat(amount) - units) * 1e9)
     try {
@@ -75,7 +77,7 @@ export function AddIncomeModal({ budgetProfileId, showBeforeTax, onSkip, onDone 
   }
 
   async function handleDone() {
-    if (name.trim() && amount) {
+    if (name.trim() && amount && !amountError) {
       try {
         await handleAdd()
       } catch {
@@ -120,6 +122,8 @@ export function AddIncomeModal({ budgetProfileId, showBeforeTax, onSkip, onDone 
         onChange={(e) => setAmount(e.target.value)}
         fullWidth
         inputProps={{ min: 0, step: '0.01' }}
+        error={!!amountError}
+        helperText={amountError}
       />
       <FormControlLabel
         control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
@@ -149,7 +153,7 @@ export function AddIncomeModal({ budgetProfileId, showBeforeTax, onSkip, onDone 
       )}
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button variant="outlined" onClick={handleAdd} disabled={!name.trim() || !amount || isPending}>
+        <Button variant="outlined" onClick={handleAdd} disabled={!name.trim() || !amount || !!amountError || isPending}>
           {isPending ? 'Adding…' : 'Add'}
         </Button>
         <Button variant="contained" onClick={handleDone} disabled={isPending}>
