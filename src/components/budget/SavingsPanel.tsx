@@ -148,7 +148,10 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
                       {src.isTaxReserve && (
                         <Chip label={t('taxEstimate')} size="small" color="warning" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
                       )}
-                      {!src.isTaxReserve && FREQ_KEY[src.frequency] && (
+                      {!src.isTaxReserve && src.paymentDays.length > 0 && (
+                        <Chip label={src.paymentDays.join(', ')} size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                      {!src.isTaxReserve && src.paymentDays.length === 0 && FREQ_KEY[src.frequency] && (
                         <Chip label={t(`freq.${FREQ_KEY[src.frequency]}`)} size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
                       )}
                     </Box>
