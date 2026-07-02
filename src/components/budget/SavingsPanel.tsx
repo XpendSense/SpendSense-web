@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { SavingsSource } from '@/gen/spendsense/v1/budget_pb'
 import { RecurringType } from '@/gen/spendsense/v1/common_pb'
@@ -64,6 +64,7 @@ export function SavingsPanel({ budgetProfileId, activePeriodStart, addOpen = fal
   const { showError } = useSnackbar()
   const client = useClient(BudgetService)
   const [editingSource, setEditingSource] = useState<SavingsSource | null>(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['savings-sources', budgetProfileId],
@@ -89,6 +90,7 @@ export function SavingsPanel({ budgetProfileId, activePeriodStart, addOpen = fal
       await doDelete(id)
       logger.info('budget.savings.delete', { budgetProfileId, id: id.toString() })
       refetch()
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
     } catch (err) {
       showError(err)
     }
