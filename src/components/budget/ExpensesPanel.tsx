@@ -338,8 +338,8 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
   )
 
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
-  const afterSavings = incomeTotal - savingsTotal
-  const remainder = afterSavings - totalCommitted
+  const afterSavings = totalCommitted + savingsTotal
+  const remainder = incomeTotal - afterSavings
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 

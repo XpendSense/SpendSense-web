@@ -184,7 +184,7 @@
       "tax": "impuesto",
       "planSummary": "Resumen del Plan",
       "plannedAllocations": "Asignaciones planificadas + Gastos fijos",
-      "afterSavings": "Después de ahorros",
+      "afterSavings": "Incluyendo ahorros",
       "remainder": "Saldo restante",
       "chart": {
         "pie": "Pastel",
