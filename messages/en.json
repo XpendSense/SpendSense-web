@@ -105,6 +105,31 @@
         "biWeekly": "bi-weekly",
         "monthly": "monthly",
         "yearly": "yearly"
+      },
+      "addDialog": {
+        "title": "Add Savings Source",
+        "name": "Name",
+        "namePlaceholder": "e.g. Emergency fund",
+        "amount": "Amount",
+        "paymentMethod": "Payment method *",
+        "paymentDays": "Payment days",
+        "dayHint": "Select 1 day (monthly), 2 days (bi-weekly), or 4 days (weekly)",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "editDialog": {
+        "title": "Edit Savings Source",
+        "name": "Name",
+        "namePlaceholder": "e.g. Emergency fund",
+        "amount": "Amount",
+        "paymentMethod": "Payment method",
+        "noPaymentMethod": "— None —",
+        "paymentDays": "Payment days",
+        "dayHint": "Select 1 day (monthly), 2 days (bi-weekly), or 4 days (weekly)",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…"
       }
     },
     "paymentMethods": {
@@ -178,13 +203,8 @@
       "removeRow": "Remove row",
       "noCategories": "No categories yet — use the picker to add one.",
       "addCategory": "Add category…",
-      "committedSavings": "Committed Savings",
-      "source": "Source",
-      "monthlyPerPerson": "Monthly (per person)",
-      "tax": "tax",
       "planSummary": "Plan Summary",
       "plannedAllocations": "Planned allocations + Fixed expenses",
-      "afterSavings": "After savings",
       "remainder": "Remainder",
       "chart": {
         "pie": "Pie",

@@ -105,6 +105,31 @@
         "biWeekly": "quincenal",
         "monthly": "mensual",
         "yearly": "anual"
+      },
+      "addDialog": {
+        "title": "Agregar fuente de ahorro",
+        "name": "Nombre",
+        "namePlaceholder": "ej. Fondo de emergencia",
+        "amount": "Monto",
+        "paymentMethod": "Método de pago *",
+        "paymentDays": "Días de pago",
+        "dayHint": "Selecciona 1 día (mensual), 2 días (quincenal) o 4 días (semanal)",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "saving": "Guardando…"
+      },
+      "editDialog": {
+        "title": "Editar fuente de ahorro",
+        "name": "Nombre",
+        "namePlaceholder": "ej. Fondo de emergencia",
+        "amount": "Monto",
+        "paymentMethod": "Método de pago",
+        "noPaymentMethod": "— Ninguno —",
+        "paymentDays": "Días de pago",
+        "dayHint": "Selecciona 1 día (mensual), 2 días (quincenal) o 4 días (semanal)",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "saving": "Guardando…"
       }
     },
     "paymentMethods": {
@@ -178,13 +203,8 @@
       "removeRow": "Quitar fila",
       "noCategories": "No hay categorías aún — usa el selector para agregar una.",
       "addCategory": "Agregar categoría…",
-      "committedSavings": "Ahorros Comprometidos",
-      "source": "Fuente",
-      "monthlyPerPerson": "Mensual (por persona)",
-      "tax": "impuesto",
       "planSummary": "Resumen del Plan",
       "plannedAllocations": "Asignaciones planificadas + Gastos fijos",
-      "afterSavings": "Después de ahorros",
       "remainder": "Saldo restante",
       "chart": {
         "pie": "Pastel",

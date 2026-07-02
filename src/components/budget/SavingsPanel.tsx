@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { SavingsSource } from '@/gen/spendsense/v1/budget_pb'
 import { RecurringType } from '@/gen/spendsense/v1/common_pb'
@@ -26,6 +26,7 @@ import Tooltip from '@mui/material/Tooltip'
 
 interface Props {
   budgetProfileId: string
+  activePeriodStart?: Date
   addOpen?: boolean
   onAddClose?: () => void
 }
@@ -58,11 +59,12 @@ function toMonthlyAmount(src: SavingsSource): number {
   return amount * (MONTHLY_MULTIPLIER[src.frequency] ?? 0)
 }
 
-export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: Props) {
+export function SavingsPanel({ budgetProfileId, activePeriodStart, addOpen = false, onAddClose }: Props) {
   const t = useTranslations('budget.savings')
   const { showError } = useSnackbar()
   const client = useClient(BudgetService)
   const [editingSource, setEditingSource] = useState<SavingsSource | null>(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['savings-sources', budgetProfileId],
@@ -74,6 +76,11 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
     queryFn: () => client.listBudgetPeople({ budgetProfileId }),
   })
 
+  const { data: pmData } = useQuery({
+    queryKey: ['payment-methods', budgetProfileId],
+    queryFn: () => client.listPaymentMethods({ budgetProfileId }),
+  })
+
   const { mutateAsync: doDelete } = useMutation({
     mutationFn: (id: bigint) => client.deleteSavingsSource({ id, budgetProfileId }),
   })
@@ -83,6 +90,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
       await doDelete(id)
       logger.info('budget.savings.delete', { budgetProfileId, id: id.toString() })
       refetch()
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
     } catch (err) {
       showError(err)
     }
@@ -91,6 +99,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
   const sources = data?.sources ?? []
   const people = peopleData?.people ?? []
   const personMap = new Map(people.map((p) => [p.id.toString(), p.userName]))
+  const pmMap = new Map((pmData?.methods ?? []).map((pm) => [pm.id, pm.name]))
   const monthlyTotal = sources.reduce((sum, s) => sum + toMonthlyAmount(s), 0)
 
   if (isLoading) return <CircularProgress size={20} />
@@ -113,6 +122,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
             const personName = src.budgetPersonId !== 0n
               ? personMap.get(src.budgetPersonId.toString())
               : undefined
+            const pmName = src.paymentMethodId ? pmMap.get(src.paymentMethodId) : undefined
             return (
               <ListItem
                 key={src.id.toString()}
@@ -141,7 +151,10 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
                       {src.isTaxReserve && (
                         <Chip label={t('taxEstimate')} size="small" color="warning" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
                       )}
-                      {!src.isTaxReserve && FREQ_KEY[src.frequency] && (
+                      {!src.isTaxReserve && src.paymentDays.length > 0 && (
+                        <Chip label={src.paymentDays.join(', ')} size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                      {!src.isTaxReserve && src.paymentDays.length === 0 && FREQ_KEY[src.frequency] && (
                         <Chip label={t(`freq.${FREQ_KEY[src.frequency]}`)} size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
                       )}
                     </Box>
@@ -156,6 +169,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
                         <> · {t('federal')} {formatMoney(src.federalAmount.units, src.federalAmount.nanos)}</>
                       )}
                       {personName && <> · {personName}</>}
+                      {pmName && <> · {pmName}</>}
                     </>
                   }
                 />
@@ -168,6 +182,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
       {addOpen && (
         <AddSavingsDialog
           budgetProfileId={budgetProfileId}
+          activePeriodStart={activePeriodStart}
           onClose={() => onAddClose?.()}
           onDone={() => { onAddClose?.(); refetch() }}
         />
@@ -176,6 +191,7 @@ export function SavingsPanel({ budgetProfileId, addOpen = false, onAddClose }: P
       {editingSource && (
         <EditSavingsModal
           budgetProfileId={budgetProfileId}
+          activePeriodStart={activePeriodStart}
           source={editingSource}
           onClose={() => setEditingSource(null)}
           onDone={() => {

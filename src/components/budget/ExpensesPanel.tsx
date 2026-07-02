@@ -66,8 +66,19 @@ function actualColor(actual: number, plannedTotal: number): string | undefined {
   if (plannedTotal <= 0) return undefined
   const ratio = actual / plannedTotal
   if (ratio > 1) return 'error.main'
+  if (ratio >= 1) return 'success.main'
   if (ratio >= 0.9) return 'warning.main'
   return 'success.main'
+}
+
+// Savings rows use inverted thresholds: more saved = greener
+function savingsActualColor(actual: number, plannedTotal: number): string | undefined {
+  if (plannedTotal <= 0) return undefined
+  const ratio = actual / plannedTotal
+  if (ratio >= 0.9) return 'success.main'
+  if (ratio >= 0.7) return '#eab308'
+  if (ratio >= 0.5) return 'warning.main'
+  return 'error.main'
 }
 
 interface EditCellProps {
@@ -280,21 +291,41 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
     }
   }
 
+  // "Savings" system category auto-shows when savings sources exist
+  const savingsCat = categories.find((c) => c.name === 'Savings' && c.isSystem)
+
   const catIdsWithAllocs = new Set(allocations.map((a) => a.categoryId))
   const visibleCats = categories.filter(
-    (c) => catIdsWithAllocs.has(c.id) || txnActualByCat.has(c.id) || pinnedCategoryIds.has(c.id),
+    (c) => catIdsWithAllocs.has(c.id) || txnActualByCat.has(c.id) || pinnedCategoryIds.has(c.id) ||
+           (savingsCat?.id === c.id && savingsSources.length > 0),
   )
   const visibleCatIds = new Set(visibleCats.map((c) => c.id))
-  const addableCategories = categories.filter((c) => !visibleCatIds.has(c.id))
+  // Savings category is system-managed — exclude from the manual picker
+  const addableCategories = categories.filter(
+    (c) => !visibleCatIds.has(c.id) && c.id !== savingsCat?.id,
+  )
 
-  // chart data
+  // savings — amount is already the monthly figure; frequency is the cadence, not a multiplier
+  const savingsByPerson = new Map<string, number>()
+  for (const s of savingsSources) {
+    const personKey = s.budgetPersonId.toString()
+    const amt = parseMoney(s.amount?.units ?? 0n, s.amount?.nanos ?? 0)
+    savingsByPerson.set(personKey, (savingsByPerson.get(personKey) ?? 0) + amt)
+  }
+  const savingsTotal = [...savingsByPerson.values()].reduce((a, b) => a + b, 0)
+
+  // chart data — Savings category uses savings sources as planned amounts
   const chartData = (() => {
     if (chartGrouping === 'category') {
       return visibleCats.map((cat, i) => {
         let value = 0
-        for (const p of people) {
-          const alloc = allocMap.get(`${cat.id}:${p.id}`)
-          if (alloc) value += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+        if (savingsCat && cat.id === savingsCat.id) {
+          value = savingsTotal
+        } else {
+          for (const p of people) {
+            const alloc = allocMap.get(`${cat.id}:${p.id}`)
+            if (alloc) value += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+          }
         }
         return { name: cat.name, value, color: cat.color || CHART_COLORS[i % CHART_COLORS.length] }
       }).filter((d) => d.value > 0)
@@ -302,29 +333,26 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
     return people.map((p, i) => {
       let value = 0
       for (const cat of visibleCats) {
-        const alloc = allocMap.get(`${cat.id}:${p.id}`)
-        if (alloc) value += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+        if (savingsCat && cat.id === savingsCat.id) {
+          value += savingsByPerson.get(p.id.toString()) ?? 0
+        } else {
+          const alloc = allocMap.get(`${cat.id}:${p.id}`)
+          if (alloc) value += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+        }
       }
       return { name: p.userName, value, color: p.color || CHART_COLORS[i % CHART_COLORS.length] }
     }).filter((d) => d.value > 0)
   })()
 
-  // savings
-  const savingsByPerson = new Map<string, number>()
-  for (const s of savingsSources) {
-    const personKey = s.budgetPersonId.toString()
-    const amt = parseMoney(s.amount?.units ?? 0n, s.amount?.nanos ?? 0)
-    const freq = s.frequency
-    const mult = freq === 2 ? 52 / 12 : freq === 3 ? 26 / 12 : freq === 4 ? 1 : freq === 5 ? 1 / 12 : 0
-    savingsByPerson.set(personKey, (savingsByPerson.get(personKey) ?? 0) + amt * mult)
-  }
-  const savingsTotal = [...savingsByPerson.values()].reduce((a, b) => a + b, 0)
-
   const plannedExpenseTotal = visibleCats.reduce((sum, cat) => {
     let catTotal = 0
-    for (const p of people) {
-      const alloc = allocMap.get(`${cat.id}:${p.id}`)
-      if (alloc) catTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+    if (savingsCat && cat.id === savingsCat.id) {
+      catTotal = savingsTotal
+    } else {
+      for (const p of people) {
+        const alloc = allocMap.get(`${cat.id}:${p.id}`)
+        if (alloc) catTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+      }
     }
     return sum + catTotal
   }, 0)
@@ -338,9 +366,9 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
     0,
   )
 
+  // savings are now part of plannedExpenseTotal (shown as the Savings category row)
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
-  const afterSavings = incomeTotal - savingsTotal
-  const remainder = afterSavings - totalCommitted
+  const remainder = incomeTotal - totalCommitted
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -449,13 +477,19 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
       ) : isMobile ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {visibleCats.map((cat) => {
+            const isSavings = savingsCat?.id === cat.id
             const actual = txnActualByCat.get(cat.id) ?? 0
             let plannedTotal = 0
-            for (const p of people) {
-              const alloc = allocMap.get(`${cat.id}:${p.id}`)
-              if (alloc) plannedTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+            if (isSavings) {
+              plannedTotal = savingsTotal
+            } else {
+              for (const p of people) {
+                const alloc = allocMap.get(`${cat.id}:${p.id}`)
+                if (alloc) plannedTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+              }
             }
-            const headerActualColor = actualColor(actual, plannedTotal)
+            const colorFn = isSavings ? savingsActualColor : actualColor
+            const headerActualColor = colorFn(actual, plannedTotal)
             return (
               <Paper key={cat.id} variant="outlined" sx={{ p: 1.5 }}>
                 {/* Card header */}
@@ -482,9 +516,11 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                         {actual > 0 ? formatMoney(actual) : '—'}
                       </Typography>
                     </Box>
-                    <IconButton size="small" onClick={() => handleRemoveCategory(cat.id)}>
-                      <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
+                    {!isSavings && (
+                      <IconButton size="small" onClick={() => handleRemoveCategory(cat.id)}>
+                        <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    )}
                   </Box>
                 </Box>
                 {/* Person rows */}
@@ -493,11 +529,18 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                     <Divider sx={{ my: 1 }} />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                       {people.map((p) => {
-                        const alloc = allocMap.get(`${cat.id}:${p.id}`)
-                        const val = alloc
-                          ? parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
-                          : undefined
                         const personActual = txnActualByPersonCat.get(`${cat.id}:${p.id}`) ?? 0
+                        let val: number | undefined
+                        if (isSavings) {
+                          const sv = savingsByPerson.get(p.id.toString())
+                          val = sv !== undefined ? sv : undefined
+                        } else {
+                          const alloc = allocMap.get(`${cat.id}:${p.id}`)
+                          val = alloc
+                            ? parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+                            : undefined
+                        }
+                        const alloc = isSavings ? undefined : allocMap.get(`${cat.id}:${p.id}`)
                         return (
                           <Box key={p.id.toString()} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             {p.color && (
@@ -515,13 +558,15 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                             </Typography>
                             <Typography
                               variant="body2"
-                              sx={{ minWidth: 64, textAlign: 'right', color: actualColor(personActual, val ?? 0) || 'text.secondary' }}
+                              sx={{ minWidth: 64, textAlign: 'right', color: colorFn(personActual, val ?? 0) || 'text.secondary' }}
                             >
                               {personActual > 0 ? formatMoney(personActual) : '—'}
                             </Typography>
-                            <IconButton size="small" onClick={() => openEditDialog(cat, p.id, p.userName, val, alloc)}>
-                              <EditIcon sx={{ fontSize: 15 }} />
-                            </IconButton>
+                            {!isSavings && (
+                              <IconButton size="small" onClick={() => openEditDialog(cat, p.id, p.userName, val, alloc)}>
+                                <EditIcon sx={{ fontSize: 15 }} />
+                              </IconButton>
+                            )}
                           </Box>
                         )
                       })}
@@ -560,13 +605,19 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
             </TableHead>
             <TableBody>
               {visibleCats.map((cat) => {
+                const isSavings = savingsCat?.id === cat.id
                 const actual = txnActualByCat.get(cat.id) ?? 0
                 let plannedTotal = 0
-                for (const p of people) {
-                  const alloc = allocMap.get(`${cat.id}:${p.id}`)
-                  if (alloc) plannedTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+                if (isSavings) {
+                  plannedTotal = savingsTotal
+                } else {
+                  for (const p of people) {
+                    const alloc = allocMap.get(`${cat.id}:${p.id}`)
+                    if (alloc) plannedTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+                  }
                 }
-                const color = actualColor(actual, plannedTotal)
+                const colorFn = isSavings ? savingsActualColor : actualColor
+                const color = colorFn(actual, plannedTotal)
                 return (
                   <TableRow key={cat.id} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -581,6 +632,16 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                       </Box>
                     </TableCell>
                     {people.map((p) => {
+                      if (isSavings) {
+                        const sv = savingsByPerson.get(p.id.toString())
+                        return (
+                          <TableCell key={p.id.toString()} align="right">
+                            {sv != null && sv > 0
+                              ? formatMoney(sv)
+                              : <Typography component="span" variant="body2" color="text.disabled">—</Typography>}
+                          </TableCell>
+                        )
+                      }
                       const alloc = allocMap.get(`${cat.id}:${p.id}`)
                       const val = alloc
                         ? parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
@@ -612,15 +673,17 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                         : <Typography component="span" variant="body2" color="text.disabled">—</Typography>}
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title={t('removeRow')} placement="left">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveCategory(cat.id)}
-                          sx={{ opacity: 0.4, '&:hover': { opacity: 1 } }}
-                        >
-                          <DeleteOutlineIcon sx={{ fontSize: 15 }} />
-                        </IconButton>
-                      </Tooltip>
+                      {!isSavings && (
+                        <Tooltip title={t('removeRow')} placement="left">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveCategory(cat.id)}
+                            sx={{ opacity: 0.4, '&:hover': { opacity: 1 } }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 15 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 )
@@ -632,8 +695,12 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                 {people.map((p) => {
                   let personTotal = 0
                   for (const cat of visibleCats) {
-                    const alloc = allocMap.get(`${cat.id}:${p.id}`)
-                    if (alloc) personTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+                    if (savingsCat?.id === cat.id) {
+                      personTotal += savingsByPerson.get(p.id.toString()) ?? 0
+                    } else {
+                      const alloc = allocMap.get(`${cat.id}:${p.id}`)
+                      if (alloc) personTotal += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+                    }
                   }
                   return (
                     <TableCell key={p.id.toString()} align="right">
@@ -683,84 +750,8 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
         </DialogActions>
       </Dialog>
 
-      {/* Savings section (unchanged) */}
-      {savingsSources.length > 0 && (
-        <Box mt={3}>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="subtitle2" fontWeight={600} color="text.secondary" mb={1}>
-            {t('committedSavings')}
-          </Typography>
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell rowSpan={2} sx={{ fontWeight: 600, verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>{t('source')}</TableCell>
-                  <TableCell
-                    colSpan={people.length + 1}
-                    align="center"
-                    sx={{ fontWeight: 600, borderBottom: '1px solid', borderColor: 'divider', pb: 0.5 }}
-                  >
-                    {t('monthlyPerPerson')}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  {people.map((p) => (
-                    <TableCell key={p.id.toString()} align="right" sx={{ fontWeight: 600 }}>{p.userName}</TableCell>
-                  ))}
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>{t('total')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {people.map((p) => {
-                  const personSources = savingsSources.filter((s) => s.budgetPersonId === p.id)
-                  if (personSources.length === 0) return null
-                  return personSources.map((s) => {
-                    const freq = s.frequency
-                    const mult = freq === 2 ? 52 / 12 : freq === 3 ? 26 / 12 : freq === 4 ? 1 : freq === 5 ? 1 / 12 : 0
-                    const amt = parseMoney(s.amount?.units ?? 0n, s.amount?.nanos ?? 0)
-                    const monthly = amt * mult
-                    return (
-                      <TableRow key={s.id.toString()}>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {s.name}
-                            {s.isTaxReserve && (
-                              <Chip label={t('tax')} size="small" color="warning" variant="outlined" sx={{ fontSize: '0.6rem', height: 16 }} />
-                            )}
-                          </Box>
-                        </TableCell>
-                        {people.map((person) => (
-                          <TableCell key={person.id.toString()} align="right">
-                            {person.id === p.id ? formatMoney(monthly) : '—'}
-                          </TableCell>
-                        ))}
-                        <TableCell align="right">{formatMoney(monthly)}</TableCell>
-                      </TableRow>
-                    )
-                  })
-                })}
-              </TableBody>
-              <TableFooter>
-                <TableRow sx={{ '& td': footerCellSx }}>
-                  <TableCell>{t('total')}</TableCell>
-                  {people.map((p) => {
-                    const total = savingsByPerson.get(p.id.toString()) ?? 0
-                    return (
-                      <TableCell key={p.id.toString()} align="right">
-                        {total > 0 ? formatMoney(total) : '—'}
-                      </TableCell>
-                    )
-                  })}
-                  <TableCell align="right">{formatMoney(savingsTotal)}</TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
-
-      {/* Plan summary (unchanged) */}
-      {(totalCommitted > 0 || savingsTotal > 0) && (
+      {/* Plan summary */}
+      {totalCommitted > 0 && (
         <Box mt={3}>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="subtitle2" fontWeight={600} color="text.secondary" mb={1.5}>
@@ -771,12 +762,6 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
               <Typography variant="body2" color="text.secondary">{t('plannedAllocations')}</Typography>
               <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap' }}>
                 {formatMoney(totalCommitted)}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">{t('afterSavings')}</Typography>
-              <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap' }}>
-                {formatMoney(afterSavings)}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

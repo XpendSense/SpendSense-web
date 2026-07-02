@@ -105,6 +105,7 @@ interface TableProps {
   transactions: Transaction[]
   isLoading: boolean
   isEditable: boolean
+  savingsCategoryId?: number
   label: string
   categoryMap: Map<number, Category>
   methodMap: Map<string, PaymentMethod>
@@ -114,7 +115,7 @@ interface TableProps {
 }
 
 function TransactionTable({
-  transactions, isLoading, isEditable, label,
+  transactions, isLoading, isEditable, savingsCategoryId, label,
   categoryMap, methodMap, personMap, onDeleted, onEdit,
 }: TableProps) {
   const t = useTranslations('budget.transactions')
@@ -147,6 +148,9 @@ function TransactionTable({
       setSortDir('asc')
     }
   }
+
+  const isRowEditable = (tx: Transaction) =>
+    isEditable && (savingsCategoryId == null || tx.categoryId !== savingsCategoryId)
 
   const sorted = [...transactions].sort((a, b) => compareTransactions(a, b, sortKey, sortDir))
 
@@ -213,10 +217,12 @@ function TransactionTable({
                   </TableCell>
                   {isEditable && (
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 0.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(tx.id)}><DeleteIcon fontSize="small" /></IconButton>
-                      </Box>
+                      {isRowEditable(tx) && (
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => handleDelete(tx.id)}><DeleteIcon fontSize="small" /></IconButton>
+                        </Box>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -297,10 +303,12 @@ function TransactionTable({
                 </TableCell>
                 {isEditable && (
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(tx.id)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Box>
+                    {isRowEditable(tx) && (
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={() => handleDelete(tx.id)}><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    )}
                   </TableCell>
                 )}
               </TableRow>
@@ -345,6 +353,10 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
   const methodMap = new Map((methodsData?.methods ?? []).map((m) => [m.id, m]))
   const personMap = new Map((peopleData?.people ?? []).map((p) => [p.id.toString(), p]))
 
+  const savingsCategoryId = (categoriesData?.categories ?? []).find(
+    (c) => c.name === 'Savings' && c.isSystem,
+  )?.id
+
   const fixedTxs = fixedData?.transactions ?? []
   const variableTxs = variableData?.transactions ?? []
   const fixedTotal = fixedTxs.reduce((sum, tx) => sum + txAmount(tx), 0)
@@ -353,7 +365,7 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['transactions', budgetPeriodId] })
 
-  const sharedTableProps = { isEditable, categoryMap, methodMap, personMap, onDeleted: refresh, onEdit: setEditTarget }
+  const sharedTableProps = { isEditable, savingsCategoryId, categoryMap, methodMap, personMap, onDeleted: refresh, onEdit: setEditTarget }
 
   return (
     <Box>

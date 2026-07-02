@@ -59,7 +59,10 @@ export function BudgetView({ budgetId }: Props) {
 
   const profile = profileData?.profile
   const periods = periodsData?.periods ?? []
-  const activePeriod = periods.find((p) => !p.isArchived) ?? periods[0]
+  const activePeriod = [...periods]
+    .filter((p) => !p.isArchived)
+    .sort((a, b) => Number(b.startDate?.seconds ?? 0n) - Number(a.startDate?.seconds ?? 0n))[0]
+    ?? periods[0]
   // Fall back to the user's country when the profile pre-dates the country_code column
   const effectiveCountry = profile?.countryCode || meData?.user?.countryCode || ''
   const showBeforeTax = effectiveCountry === 'US'
@@ -88,6 +91,7 @@ export function BudgetView({ budgetId }: Props) {
         <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
           <SavingsPanel
             budgetProfileId={budgetId}
+            activePeriodStart={activePeriod?.startDate ? new Date(Number(activePeriod.startDate.seconds) * 1000) : undefined}
             addOpen={activeAdd === 'savings'}
             onAddClose={() => setActiveAdd(null)}
           />

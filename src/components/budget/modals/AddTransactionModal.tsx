@@ -6,6 +6,7 @@ import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import { useClient } from '@/hooks/useClient'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
 import { logger } from '@/lib/logger'
+import { PaymentMethodSelect } from '@/components/budget/PaymentMethodSelect'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import Dialog from '@mui/material/Dialog'
@@ -75,17 +76,6 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     queryKey: ['categories'],
     queryFn: () => client.listCategories({}),
   })
-  const { data: methodsData } = useQuery({
-    queryKey: ['paymentMethods', budgetProfileId],
-    queryFn: () => client.listPaymentMethods({ budgetProfileId }),
-  })
-  const { data: peopleData } = useQuery({
-    queryKey: ['budget-people', budgetProfileId],
-    queryFn: () => client.listBudgetPeople({ budgetProfileId }),
-  })
-
-  const methods = methodsData?.methods ?? []
-  const personMap = new Map((peopleData?.people ?? []).map((p) => [p.id.toString(), p]))
   const { mutateAsync, isPending } = useMutation({
     mutationFn: (vars: {
       name: string
@@ -180,53 +170,14 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
           <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
         ))}
       </TextField>
-      <TextField
-        select
-        label="Payment method"
+      <PaymentMethodSelect
+        budgetProfileId={budgetProfileId}
         value={paymentMethodId}
-        onChange={(e) => setPaymentMethodId(e.target.value)}
-        fullWidth
+        onChange={setPaymentMethodId}
+        label="Payment method"
         required
-        SelectProps={{
-          renderValue: (val) => {
-            const m = methods.find((x) => x.id === val)
-            if (!m) return val as string
-            const person = m.budgetPersonId && m.budgetPersonId !== 0n ? personMap.get(m.budgetPersonId.toString()) : undefined
-            return (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {m.color && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: m.color, flexShrink: 0 }} />}
-                <span>{m.name}{person ? ` · ${person.userName}` : ''}</span>
-              </Box>
-            )
-          },
-        }}
-      >
-        {methods.map((m) => {
-          const person = m.budgetPersonId && m.budgetPersonId !== 0n ? personMap.get(m.budgetPersonId.toString()) : undefined
-          return (
-            <MenuItem key={m.id} value={m.id}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-                    bgcolor: m.color || 'transparent',
-                    border: '1px solid',
-                    borderColor: m.color ? 'transparent' : 'divider',
-                  }}
-                />
-                <Box>
-                  <Typography variant="body2" sx={{ lineHeight: 1.3 }}>{m.name}</Typography>
-                  {person && (
-                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
-                      {person.userName}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </MenuItem>
-          )
-        })}
-      </TextField>
+        size="medium"
+      />
       {!isFixed && (
         <FormControlLabel
           control={<Checkbox checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />}
