@@ -323,7 +323,7 @@ export function BudgetSidebar({ budgetId, children }: Props) {
 
       {/* Mobile management drawer */}
       <Drawer
-        anchor="left"
+        anchor="right"
         open={mobileManageOpen}
         onClose={() => setMobileManageOpen(false)}
         sx={{ display: { md: 'none' } }}

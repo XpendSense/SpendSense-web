@@ -397,6 +397,7 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
   // savings are now part of plannedExpenseTotal (shown as the Savings category row)
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
   const remainder = incomeTotal - totalCommitted
+  const actualTotal = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -815,6 +816,17 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                 color={remainder < 0 ? 'error.main' : 'success.main'}
               >
                 {formatMoney(remainder)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">{t('actual')}</Typography>
+              <Typography
+                variant="body2"
+                fontWeight={700}
+                sx={{ ml: 2, whiteSpace: 'nowrap' }}
+                color={actualColor(actualTotal, totalCommitted)}
+              >
+                {formatMoney(actualTotal)}
               </Typography>
             </Box>
           </Box>
