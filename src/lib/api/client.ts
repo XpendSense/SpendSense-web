@@ -16,7 +16,8 @@ export function createTransport(token: string): Transport {
         } catch (err) {
           if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
             await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
-            window.location.href = '/login'
+            const locale = window.location.pathname.split('/')[1]
+            window.location.href = ['en', 'es'].includes(locale) ? `/${locale}/login` : '/login'
           }
           throw err
         }

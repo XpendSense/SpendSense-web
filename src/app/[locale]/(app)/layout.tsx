@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { TOKEN_COOKIE } from '@/lib/auth/token'
+import { TOKEN_COOKIE, isTokenExpired } from '@/lib/auth/token'
 import { AuthProvider } from '@/context/AuthContext'
 import { SnackbarProvider } from '@/components/ui/ErrorSnackbar'
 
@@ -13,7 +13,7 @@ export default async function AppLayout({
 }) {
   const { locale } = await params
   const token = (await cookies()).get(TOKEN_COOKIE)?.value
-  if (!token) redirect(`/${locale}/login`)
+  if (!token || isTokenExpired(token)) redirect(`/${locale}/login`)
 
   return (
     <SnackbarProvider>
