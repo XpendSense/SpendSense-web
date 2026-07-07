@@ -397,7 +397,28 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
   // savings are now part of plannedExpenseTotal (shown as the Savings category row)
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
   const remainder = incomeTotal - totalCommitted
-  const actualTotal = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
+
+  // over-budget: categories where actual > planned (includes unplanned spend where planned = 0)
+  let overBudgetCount = 0
+  let totalOverspend = 0
+  for (const cat of visibleCats) {
+    let planned = 0
+    if (savingsCat && cat.id === savingsCat.id) {
+      planned = savingsTotal
+    } else {
+      for (const p of people) {
+        const alloc = allocMap.get(`${cat.id}:${p.id}`)
+        if (alloc) planned += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
+      }
+      if (planned === 0) planned = fixedPlannedByCat.get(cat.id) ?? 0
+    }
+    const actual = txnActualByCat.get(cat.id) ?? 0
+    if (actual > planned) {
+      overBudgetCount++
+      totalOverspend += actual - planned
+    }
+  }
+  const hasAnyActual = txnActualByCat.size > 0
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -818,17 +839,20 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                 {formatMoney(remainder)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">{t('actual')}</Typography>
-              <Typography
-                variant="body2"
-                fontWeight={700}
-                sx={{ ml: 2, whiteSpace: 'nowrap' }}
-                color={actualColor(actualTotal, totalCommitted)}
-              >
-                {formatMoney(actualTotal)}
-              </Typography>
-            </Box>
+            {hasAnyActual && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">{t('overBudget')}</Typography>
+                {overBudgetCount === 0 ? (
+                  <Typography variant="body2" fontWeight={700} sx={{ ml: 2 }} color="success.main">
+                    {t('onTrack')}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap' }} color="error.main">
+                    {t('categoriesOver', { count: overBudgetCount })} · {formatMoney(totalOverspend)}
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Box>
         </Box>
       )}

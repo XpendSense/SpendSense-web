@@ -225,6 +225,9 @@
       "planSummary": "Plan Summary",
       "plannedAllocations": "Planned allocations + Fixed expenses",
       "remainder": "Remainder",
+      "overBudget": "Over budget",
+      "onTrack": "On track",
+      "categoriesOver": "{count, plural, one {# category over} other {# categories over}}",
       "chart": {
         "pie": "Pie",
         "bar": "Bar",
