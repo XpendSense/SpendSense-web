@@ -80,11 +80,13 @@ function compareTransactions(
   dir: 'asc' | 'desc',
 ): number {
   const sign = dir === 'asc' ? 1 : -1
+  let primary: number
   switch (key) {
-    case 'name': return a.name.localeCompare(b.name) * sign
-    case 'day': return (resolveDay(a) - resolveDay(b)) * sign
-    case 'amount': return (txPlannedAmount(a) - txPlannedAmount(b)) * sign
+    case 'name': primary = a.name.localeCompare(b.name) * sign; break
+    case 'day': primary = (resolveDay(a) - resolveDay(b)) * sign; break
+    case 'amount': primary = (txPlannedAmount(a) - txPlannedAmount(b)) * sign; break
   }
+  return primary !== 0 ? primary : a.id.localeCompare(b.id)
 }
 
 function SortHeader({
