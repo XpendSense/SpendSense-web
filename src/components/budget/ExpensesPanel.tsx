@@ -398,7 +398,8 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
   const remainder = incomeTotal - totalCommitted
 
-  // over-budget: categories where actual > planned (includes unplanned spend where planned = 0)
+  // over-budget: categories that actually have a planned amount and were exceeded.
+  // Categories with no plan at all (planned = 0) are unplanned spend, not overspend.
   let overBudgetCount = 0
   let totalOverspend = 0
   for (const cat of visibleCats) {
@@ -412,6 +413,7 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
       }
       if (planned === 0) planned = fixedPlannedByCat.get(cat.id) ?? 0
     }
+    if (planned <= 0) continue
     const actual = txnActualByCat.get(cat.id) ?? 0
     if (actual > planned) {
       overBudgetCount++
