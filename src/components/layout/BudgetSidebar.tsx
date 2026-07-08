@@ -271,7 +271,7 @@ export function BudgetSidebar({ budgetId, children }: Props) {
   )
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
       {/* Desktop permanent sidebar */}
       {!isMobile && (
         <Drawer
