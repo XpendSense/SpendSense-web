@@ -71,6 +71,15 @@ function actualColor(actual: number, plannedTotal: number): string | undefined {
   return 'success.main'
 }
 
+function spentColor(spent: number, planned: number): string {
+  if (planned <= 0) return 'success.main'
+  const pct = (spent / planned) * 100
+  if (pct >= 90) return 'error.main'
+  if (pct >= 75) return '#f59e0b'
+  if (pct >= 50) return '#eab308'
+  return 'success.main'
+}
+
 // Savings rows use inverted thresholds: more saved = greener
 function savingsActualColor(actual: number, plannedTotal: number): string | undefined {
   if (plannedTotal <= 0) return undefined
@@ -398,28 +407,7 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
   const totalCommitted = plannedExpenseTotal + fixedExpenseTotal
   const remainder = incomeTotal - totalCommitted
 
-  // over-budget: categories that actually have a planned amount and were exceeded.
-  // Categories with no plan at all (planned = 0) are unplanned spend, not overspend.
-  let overBudgetCount = 0
-  let totalOverspend = 0
-  for (const cat of visibleCats) {
-    let planned = 0
-    if (savingsCat && cat.id === savingsCat.id) {
-      planned = savingsTotal
-    } else {
-      for (const p of people) {
-        const alloc = allocMap.get(`${cat.id}:${p.id}`)
-        if (alloc) planned += parseMoney(alloc.plannedAmount?.units ?? 0n, alloc.plannedAmount?.nanos ?? 0)
-      }
-      if (planned === 0) planned = fixedPlannedByCat.get(cat.id) ?? 0
-    }
-    if (planned <= 0) continue
-    const actual = txnActualByCat.get(cat.id) ?? 0
-    if (actual > planned) {
-      overBudgetCount++
-      totalOverspend += actual - planned
-    }
-  }
+  const totalActualSpent = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -840,17 +828,12 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                 {formatMoney(remainder)}
               </Typography>
             </Box>
-            {totalOverspend > 0 && (
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Typography variant="body2" color="text.secondary">{t('overspend')}</Typography>
-                <Box sx={{ textAlign: 'right', ml: 2 }}>
-                  <Typography variant="body2" fontWeight={700} color="error.main" sx={{ whiteSpace: 'nowrap' }}>
-                    {formatMoney(totalOverspend)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                    {t('categoriesOver', { count: overBudgetCount })}
-                  </Typography>
-                </Box>
+            {totalActualSpent > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">{t('spent')}</Typography>
+                <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap', color: spentColor(totalActualSpent, totalCommitted) }}>
+                  {formatMoney(totalActualSpent)}
+                </Typography>
               </Box>
             )}
           </Box>

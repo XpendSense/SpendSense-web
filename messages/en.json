@@ -225,8 +225,7 @@
       "planSummary": "Plan Summary",
       "plannedAllocations": "Planned allocations + Fixed expenses",
       "remainder": "Remainder",
-      "overspend": "Overspend",
-      "categoriesOver": "{count, plural, one {# category over} other {# categories over}}",
+      "spent": "Spent",
       "chart": {
         "pie": "Pie",
         "bar": "Bar",
