@@ -418,7 +418,6 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
       totalOverspend += actual - planned
     }
   }
-  const actualTotal = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -839,18 +838,16 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId }: Props) {
                 {formatMoney(remainder)}
               </Typography>
             </Box>
-            {actualTotal > 0 && (
+            {totalOverspend > 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Typography variant="body2" color="text.secondary">{t('actual')}</Typography>
+                <Typography variant="body2" color="text.secondary">{t('overspend')}</Typography>
                 <Box sx={{ textAlign: 'right', ml: 2 }}>
-                  <Typography variant="body2" fontWeight={700} sx={{ whiteSpace: 'nowrap' }} color={actualColor(actualTotal, totalCommitted)}>
-                    {formatMoney(actualTotal)}
+                  <Typography variant="body2" fontWeight={700} color="error.main" sx={{ whiteSpace: 'nowrap' }}>
+                    {formatMoney(totalOverspend)}
                   </Typography>
-                  {overBudgetCount > 0 && (
-                    <Typography variant="caption" color="error.main" sx={{ whiteSpace: 'nowrap' }}>
-                      {t('categoriesOver', { count: overBudgetCount })} · {formatMoney(totalOverspend)}
-                    </Typography>
-                  )}
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    {t('categoriesOver', { count: overBudgetCount })}
+                  </Typography>
                 </Box>
               </Box>
             )}

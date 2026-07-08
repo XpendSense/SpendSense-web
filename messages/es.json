@@ -225,8 +225,7 @@
       "planSummary": "Resumen del Plan",
       "plannedAllocations": "Asignaciones planificadas + Gastos fijos",
       "remainder": "Saldo restante",
-      "overBudget": "Sobre presupuesto",
-      "onTrack": "En orden",
+      "overspend": "Excedido",
       "categoriesOver": "{count, plural, one {# categoría excedida} other {# categorías excedidas}}",
       "chart": {
         "pie": "Pastel",
