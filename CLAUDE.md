@@ -53,10 +53,37 @@ logger.info('budget.create', { budgetId })
 
 `main` is production. Never commit or push directly to `main`.
 
-- Branch work off `develop` (or commit straight to `develop` for small fixes)
-- Push to `origin/develop`
-- Open a PR from `develop` into `main`
-- Enable auto-merge on the PR (`mergeMethod: MERGE`) so it lands once required checks pass
+**Before starting any work:**
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/<name>
+```
+
+**Final steps after implementation:**
+
+```bash
+# Run checks first
+npm run build
+npm run lint
+
+# Stage specific files (never git add -A)
+git add src/... messages/...
+
+# Commit and push
+git commit -m "feat: meaningful description of what changed"
+git push origin feature/<name>
+
+# Create PR from feature branch → main and immediately enable auto-merge
+gh pr create --base main --head feature/<name> --title "Short title" --body "Description"
+gh pr merge feature/<name> --auto --merge
+```
+
+- Always pull `develop` before branching — never start from a stale base
+- Always branch off `develop` with a `feature/<name>` branch; never commit directly to `develop` or `main`
+- `gh pr merge --auto` enables auto-merge — the PR lands once CI passes; no manual merge needed
+- Never merge PRs manually — always let auto-merge handle it after checks pass
 
 ## Generated files — do not edit
 
