@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { BudgetProfile } from '@/gen/spendsense/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
-import { formatError } from '@/lib/errors'
+import { formatError, isSessionError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -25,6 +26,8 @@ import DialogContentText from '@mui/material/DialogContentText'
 import DialogActions from '@mui/material/DialogActions'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import LogoutIcon from '@mui/icons-material/Logout'
+import Tooltip from '@mui/material/Tooltip'
 import { BudgetSetupFlow } from './BudgetSetupFlow'
 import { useRouter } from '@/i18n/navigation'
 
@@ -60,8 +63,16 @@ function DeleteConfirmDialog({
 
 export function BudgetList() {
   const t = useTranslations('budget.list')
+  const tAuth = useTranslations('auth')
+  const locale = useLocale()
   const router = useRouter()
   const { showError, showSuccess } = useSnackbar()
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login', { locale })
+  }
+
   const [setupOpen, setSetupOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<BudgetProfile | null>(null)
   const client = useClient(BudgetService)
@@ -71,6 +82,12 @@ export function BudgetList() {
     queryKey: ['budgets', 'list'],
     queryFn: () => client.listBudgetProfiles({}),
   })
+
+  useEffect(() => {
+    if (isError && isSessionError(error)) {
+      fetch('/api/auth/logout', { method: 'POST' }).then(() => router.push('/login', { locale }))
+    }
+  }, [isError, error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { mutateAsync: doDelete, isPending: isDeleting } = useMutation({
     mutationFn: (id: string) => client.deleteBudgetProfile({ id }),
@@ -110,9 +127,16 @@ export function BudgetList() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={700}>{t('title')}</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setSetupOpen(true)}>
-          {t('newBudget')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setSetupOpen(true)}>
+            {t('newBudget')}
+          </Button>
+          <Tooltip title={tAuth('logout')}>
+            <IconButton onClick={handleLogout} aria-label={tAuth('logout')}>
+              <LogoutIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {profiles.length === 0 ? (

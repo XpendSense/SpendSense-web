@@ -1,5 +1,13 @@
 import { ConnectError, Code } from '@connectrpc/connect'
 
+/** True when the error means the session is invalid and the user should be logged out. */
+export function isSessionError(err: unknown): boolean {
+  if (!(err instanceof ConnectError)) return false
+  if (err.code === Code.Unauthenticated) return true
+  if (err.code === Code.NotFound && err.rawMessage?.toLowerCase().includes('user')) return true
+  return false
+}
+
 export function formatError(err: unknown): string {
   if (err instanceof ConnectError) {
     switch (err.code) {
