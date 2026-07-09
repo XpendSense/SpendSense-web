@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import type { BudgetInvite } from '@/gen/spendsense/v1/invite_pb'
@@ -144,7 +144,18 @@ export function InvitePanel({ budgetProfileId }: Props) {
     }
   }
 
-  const invites = invitesData?.invites ?? []
+  // Keep only the latest invite per email — resends create new rows so older ones are suppressed.
+  const invites = useMemo(() => {
+    const all = invitesData?.invites ?? []
+    const byEmail = new Map<string, typeof all[number]>()
+    for (const inv of all) {
+      const existing = byEmail.get(inv.email)
+      const invTime = Number(inv.expiresAt?.seconds ?? 0)
+      const existingTime = Number(existing?.expiresAt?.seconds ?? 0)
+      if (!existing || invTime > existingTime) byEmail.set(inv.email, inv)
+    }
+    return [...byEmail.values()]
+  }, [invitesData])
   const guestPeople = (peopleData?.people ?? []).filter((p) => !p.userId)
 
   function statusLabel(status: InviteStatus): string {
