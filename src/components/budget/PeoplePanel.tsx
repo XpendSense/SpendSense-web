@@ -115,6 +115,14 @@ export function PeoplePanel({ budgetProfileId, canManageUsers = true }: Props) {
     },
   })
 
+  const { mutateAsync: doUpdateRole } = useMutation({
+    mutationFn: (vars: { personId: bigint; role: BudgetRole }) =>
+      client.updateBudgetPersonRole({ budgetProfileId, personId: vars.personId, role: vars.role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget-people', budgetProfileId] })
+    },
+  })
+
   function addToList() {
     if (name.trim()) {
       setPendingNames((p) => [...p, name.trim()])
@@ -188,6 +196,16 @@ export function PeoplePanel({ budgetProfileId, canManageUsers = true }: Props) {
     }
   }
 
+  async function handleUpdateRole(personId: bigint, role: BudgetRole) {
+    try {
+      await doUpdateRole({ personId, role })
+      logger.info('budget.people.update_role', { budgetProfileId, personId: personId.toString(), role })
+      showSuccess('Role updated')
+    } catch (err) {
+      showError(err)
+    }
+  }
+
   const people = data?.people ?? []
   const replacementPeople = people.filter((p) => removingPerson && p.id !== removingPerson.id)
   const replacementPersonPMs: PaymentMethod[] = (pmData?.methods ?? []).filter(
@@ -233,12 +251,27 @@ export function PeoplePanel({ budgetProfileId, canManageUsers = true }: Props) {
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: p.color, flexShrink: 0 }} />
                         )}
                         <span>{p.userName}</span>
-                        <Chip
-                          label={roleLabel(p.role)}
-                          size="small"
-                          color={isOwner ? 'primary' : 'default'}
-                          variant="outlined"
-                        />
+                        {canManageUsers && !isOwner && p.userId && p.role !== BudgetRole.UNSPECIFIED ? (
+                          <FormControl size="small">
+                            <Select
+                              value={p.role}
+                              onChange={(e) => handleUpdateRole(p.id, e.target.value as BudgetRole)}
+                              size="small"
+                              sx={{ fontSize: '0.75rem', '.MuiSelect-select': { py: 0.5 } }}
+                            >
+                              <MenuItem value={BudgetRole.ADMIN}>{roleLabel(BudgetRole.ADMIN)}</MenuItem>
+                              <MenuItem value={BudgetRole.COLLABORATOR}>{roleLabel(BudgetRole.COLLABORATOR)}</MenuItem>
+                              <MenuItem value={BudgetRole.VIEWER}>{roleLabel(BudgetRole.VIEWER)}</MenuItem>
+                            </Select>
+                          </FormControl>
+                        ) : (
+                          <Chip
+                            label={roleLabel(p.role)}
+                            size="small"
+                            color={isOwner ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        )}
                       </Stack>
                     }
                     secondary={p.userId ? undefined : 'Pending invite'}
