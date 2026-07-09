@@ -10,6 +10,9 @@ const mockReplace = jest.fn()
 jest.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
 
 // Resolve translation keys against actual en.json so label text matches
 type Messages = Record<string, unknown>

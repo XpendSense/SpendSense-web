@@ -9,6 +9,9 @@ const mockPush = jest.fn()
 jest.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }))
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
 
 type Messages = Record<string, unknown>
 jest.mock('next-intl', () => ({
