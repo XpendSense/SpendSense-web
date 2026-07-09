@@ -140,7 +140,7 @@ export function InviteAcceptContent({ inviteToken, locale, isLoggedIn, authToken
             </Box>
           ) : loadError ? (
             <Stack spacing={2} alignItems="center" sx={{ py: 2 }}>
-              <Typography variant="h6" fontWeight={700}>SpendSense</Typography>
+              <Typography variant="h6" fontWeight={700}>WellSpent</Typography>
               <Typography color="text.secondary" textAlign="center">
                 {tInvite(`error.${loadError}`)}
               </Typography>
@@ -152,7 +152,7 @@ export function InviteAcceptContent({ inviteToken, locale, isLoggedIn, authToken
             <Stack spacing={3}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <GroupsIcon color="primary" sx={{ fontSize: 36 }} />
-                <Typography variant="h6" fontWeight={700}>SpendSense</Typography>
+                <Typography variant="h6" fontWeight={700}>WellSpent</Typography>
               </Box>
 
               <Box>

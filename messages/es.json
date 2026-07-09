@@ -1,7 +1,7 @@
 {
   "auth": {
     "login": {
-      "title": "Iniciar sesión en SpendSense",
+      "title": "Iniciar sesión en WellSpent",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "rememberMe": "Recordarme por 90 días",
@@ -13,7 +13,7 @@
       "createOne": "Crear una"
     },
     "register": {
-      "title": "Crear tu cuenta en SpendSense",
+      "title": "Crear tu cuenta en WellSpent",
       "firstName": "Nombre",
       "lastName": "Apellido",
       "email": "Correo electrónico",

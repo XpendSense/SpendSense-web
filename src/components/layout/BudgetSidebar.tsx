@@ -169,7 +169,7 @@ export function BudgetSidebar({ budgetId, children }: Props) {
         {!collapsed && (
           <Box sx={{ overflow: 'hidden' }}>
             <Typography variant="overline" color="text.secondary" display="block" noWrap>
-              SpendSense
+              WellSpent
             </Typography>
             <Typography variant="h6" fontWeight={700} noWrap>{budgetName}</Typography>
           </Box>
@@ -334,7 +334,7 @@ export function BudgetSidebar({ budgetId, children }: Props) {
       >
         <Box sx={{ width: 260, pt: 1 }}>
           <Box sx={{ px: 2, py: 1.5 }}>
-            <Typography variant="overline" color="text.secondary" display="block">SpendSense</Typography>
+            <Typography variant="overline" color="text.secondary" display="block">WellSpent</Typography>
             <Typography variant="h6" fontWeight={700} noWrap>{budgetName}</Typography>
           </Box>
           <Divider />

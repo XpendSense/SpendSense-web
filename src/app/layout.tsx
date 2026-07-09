@@ -4,7 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { ThemeRegistry } from '@/components/ui/ThemeRegistry'
 
 export const metadata: Metadata = {
-  title: 'SpendSense',
+  title: 'WellSpent',
   description: 'Income-first budgeting',
 }
 
