@@ -27,10 +27,16 @@ interface Props {
   onDone: () => void
 }
 
-const INTERVAL_OPTIONS = [1, 3, 6, 12]
+const INTERVAL_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1)
 
 function moneyToString(units: bigint, nanos: number): string {
   return (Number(units) + nanos / 1e9).toFixed(2)
+}
+
+function intervalLabel(t: (key: string, values?: Record<string, string | number | Date>) => string, n: number): string {
+  if (n === 1) return t('fields.intervalMonthly')
+  if (n === 12) return t('fields.intervalYearly')
+  return t('fields.intervalEvery', { n })
 }
 
 export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, onDone }: Props) {
@@ -128,7 +134,7 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
             helperText={t('fields.intervalMonthsHint')}
           >
             {INTERVAL_OPTIONS.map((n) => (
-              <MenuItem key={n} value={n}>{t(`fields.intervalOptions.${n}`)}</MenuItem>
+              <MenuItem key={n} value={n}>{intervalLabel(t, n)}</MenuItem>
             ))}
           </TextField>
           <TextField select label={t('fields.category')} value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} fullWidth>

@@ -46,6 +46,14 @@ function dateStringToTimestamp(str: string): { seconds: bigint; nanos: number } 
   return { seconds: BigInt(Math.floor(Date.UTC(year, month - 1, day) / 1000)), nanos: 0 }
 }
 
+const INTERVAL_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1)
+
+function intervalLabel(n: number): string {
+  if (n === 1) return 'Monthly'
+  if (n === 12) return 'Yearly'
+  return `Every ${n} months`
+}
+
 export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, embedded, defaultTypeId = 1, onClose, onSkip, onDone }: Props) {
   const { showError } = useSnackbar()
   const theme = useTheme()
@@ -183,10 +191,9 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
             fullWidth
             helperText="How often this expense is due"
           >
-            <MenuItem value={1}>Monthly</MenuItem>
-            <MenuItem value={3}>Every 3 months</MenuItem>
-            <MenuItem value={6}>Every 6 months</MenuItem>
-            <MenuItem value={12}>Yearly</MenuItem>
+            {INTERVAL_OPTIONS.map((n) => (
+              <MenuItem key={n} value={n}>{intervalLabel(n)}</MenuItem>
+            ))}
           </TextField>
         </>
       ) : (

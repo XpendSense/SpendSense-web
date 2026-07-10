@@ -256,12 +256,9 @@
         "dayOfMonthHint": "Which day of the month this expense falls on",
         "intervalMonths": "Repeats",
         "intervalMonthsHint": "How often this expense is due",
-        "intervalOptions": {
-          "1": "Monthly",
-          "3": "Every 3 months",
-          "6": "Every 6 months",
-          "12": "Yearly"
-        },
+        "intervalMonthly": "Monthly",
+        "intervalYearly": "Yearly",
+        "intervalEvery": "Every {n} months",
         "category": "Category",
         "noCategory": "— None —",
         "paymentMethod": "Payment method"
