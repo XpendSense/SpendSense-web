@@ -627,6 +627,11 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
                     )}
                   </Box>
                 </Box>
+                {isNotDue && (
+                  <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.25 }}>
+                    {t('notDueTooltip', { date: notDueInfo.nextDue ? notDueInfo.nextDue.toLocaleDateString() : '' })}
+                  </Typography>
+                )}
                 {/* Person rows */}
                 {people.length > 0 && (
                   <>

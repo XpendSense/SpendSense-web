@@ -339,12 +339,13 @@ function TransactionTable({
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <Typography variant="body2" fontWeight={500} color="text.disabled">{fe.name}</Typography>
-                              <Tooltip title={t('notDueTooltip', { date: nextDueDateLabel(fe) })}>
-                                <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
-                                  <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
-                                </IconButton>
-                              </Tooltip>
+                              <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
+                                <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
+                              </IconButton>
                             </Box>
+                            <Typography variant="caption" color="warning.main">
+                              {t('notDueTooltip', { date: nextDueDateLabel(fe) })}
+                            </Typography>
                             {(method || person) && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 {method && (
