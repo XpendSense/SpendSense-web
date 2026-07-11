@@ -6,7 +6,7 @@ import { usePathname, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
-import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense } from '@/gen/spendsense/v1/budget_pb'
+import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense, ExpenseAllocation } from '@/gen/spendsense/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
 import { useViewPreference } from '@/hooks/useViewPreference'
@@ -206,6 +206,9 @@ interface TableProps {
   personMap: Map<string, BudgetPerson>
   notDueFixedExpenses?: FixedExpense[]
   searchQuery?: string
+  spentOnly?: boolean
+  overBudgetCategoryIds?: Set<number>
+  onToggleSpentOnly?: () => void
   onDeleted: () => void
   onEdit: (t: Transaction) => void
   onEditFixedExpense?: (fe: FixedExpense) => void
@@ -214,7 +217,8 @@ interface TableProps {
 
 function TransactionTable({
   transactions, isLoading, isEditable, isFixed, savingsCategoryId, budgetPeriodId, budgetProfileId, label,
-  categoryMap, methodMap, personMap, notDueFixedExpenses = [], searchQuery = '', onDeleted, onEdit, onEditFixedExpense, onRefresh,
+  categoryMap, methodMap, personMap, notDueFixedExpenses = [], searchQuery = '', spentOnly = false,
+  overBudgetCategoryIds, onToggleSpentOnly, onDeleted, onEdit, onEditFixedExpense, onRefresh,
 }: TableProps) {
   const t = useTranslations('budget.transactions')
   const { showError } = useSnackbar()
@@ -291,8 +295,10 @@ function TransactionTable({
   const canMarkPaid = (tx: Transaction) =>
     isFixed && isEditable && !tx.isPaid
 
-  const filteredTransactions = transactions.filter((tx) =>
-    matchesSearch(tx.name, tx.categoryId, tx.paymentMethodId, searchQuery, categoryMap, methodMap, personMap))
+  const filteredTransactions = transactions.filter((tx) => {
+    if (!isFixed && spentOnly && overBudgetCategoryIds && !overBudgetCategoryIds.has(tx.categoryId)) return false
+    return matchesSearch(tx.name, tx.categoryId, tx.paymentMethodId, searchQuery, categoryMap, methodMap, personMap)
+  })
   const filteredNotDue = notDueFixedExpenses.filter((fe) =>
     matchesSearch(fe.name, fe.categoryId, fe.paymentMethodId, searchQuery, categoryMap, methodMap, personMap))
 
@@ -329,6 +335,17 @@ function TransactionTable({
           >
             {sortDir === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
           </IconButton>
+          {!isFixed && (
+            <ToggleButton
+              value="spentOnly"
+              selected={spentOnly}
+              onChange={() => onToggleSpentOnly?.()}
+              size="small"
+              sx={{ alignSelf: 'center', whiteSpace: 'nowrap' }}
+            >
+              {t('filter.spentOnly')}
+            </ToggleButton>
+          )}
         </Box>
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
@@ -710,6 +727,7 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
   const [editTarget, setEditTarget] = useState<Transaction | null>(null)
   const [editFixedExpenseTarget, setEditFixedExpenseTarget] = useState<FixedExpense | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [spentOnly, setSpentOnly] = useState(false)
   const touchStartXRef = useRef<number | null>(null)
 
   // Which sub-tab (Fixed vs Variable) is stored in the URL, not component
@@ -762,6 +780,10 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     queryKey: ['fixed-expenses', budgetProfileId],
     queryFn: () => client.listFixedExpenses({ budgetProfileId }),
   })
+  const { data: allocationsData } = useQuery({
+    queryKey: ['expense-allocations', budgetProfileId],
+    queryFn: () => client.listExpenseAllocations({ budgetProfileId }),
+  })
 
   const categoryMap = new Map((categoriesData?.categories ?? []).map((c) => [c.id, c]))
   const methodMap = new Map((methodsData?.methods ?? []).map((m) => [m.id, m]))
@@ -788,6 +810,37 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
   const variableTotal = variableTxs.reduce((sum, tx) => sum + txAmount(tx), 0)
   const grandTotal = fixedPlannedTotal + variableTotal
 
+  // Categories where total variable spending exceeds the total plan (expense
+  // allocations + fixed expense planned amounts). Used by "Spent only" filter.
+  const overBudgetCategoryIds = (() => {
+    const actualByCat = new Map<number, number>()
+    variableTxs.forEach((tx) => {
+      actualByCat.set(tx.categoryId, (actualByCat.get(tx.categoryId) ?? 0) + txAmount(tx))
+    })
+    const plannedByCat = new Map<number, number>()
+    // 1. Expense allocations (user-set per-category budgets)
+    ;(allocationsData?.allocations ?? []).forEach((a: ExpenseAllocation) => {
+      const p = Number(a.plannedAmount?.units ?? 0n) + (a.plannedAmount?.nanos ?? 0) / 1e9
+      plannedByCat.set(a.categoryId, (plannedByCat.get(a.categoryId) ?? 0) + p)
+    })
+    // 2. Fixed transaction planned amounts (recurring bills count towards the plan)
+    fixedTxs.forEach((tx) => {
+      if (!tx.categoryId) return
+      plannedByCat.set(tx.categoryId, (plannedByCat.get(tx.categoryId) ?? 0) + txPlannedAmount(tx))
+    })
+    // 3. Active fixed expenses not yet due this period
+    const fixedTxExpenseIds = new Set(fixedTxs.map((tx) => tx.fixedExpenseId).filter(Boolean))
+    ;(fixedExpensesData?.expenses ?? []).filter((fe) => fe.isActive && !fixedTxExpenseIds.has(fe.id)).forEach((fe) => {
+      if (!fe.categoryId) return
+      plannedByCat.set(fe.categoryId, (plannedByCat.get(fe.categoryId) ?? 0) + fixedExpensePlannedAmount(fe))
+    })
+    const ids = new Set<number>()
+    actualByCat.forEach((actual, catId) => {
+      if (actual > (plannedByCat.get(catId) ?? 0)) ids.add(catId)
+    })
+    return ids
+  })()
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['transactions', budgetPeriodId] })
 
   const sharedTableProps = {
@@ -799,6 +852,9 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     methodMap,
     personMap,
     searchQuery,
+    spentOnly,
+    overBudgetCategoryIds,
+    onToggleSpentOnly: () => setSpentOnly((v) => !v),
     onDeleted: refresh,
     onEdit: setEditTarget,
     onRefresh: refresh,
@@ -828,28 +884,40 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
         )}
       </Box>
 
-      <TextField
-        size="small"
-        placeholder={t('searchPlaceholder')}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        fullWidth={isMobile}
-        sx={{ mb: 1.5, width: { xs: '100%', sm: 320 } }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-            </InputAdornment>
-          ),
-          endAdornment: searchQuery && (
-            <InputAdornment position="end">
-              <IconButton size="small" onClick={() => setSearchQuery('')} aria-label={t('clearSearch')}>
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
+        <TextField
+          size="small"
+          placeholder={t('searchPlaceholder')}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          fullWidth={isMobile}
+          sx={{ width: { xs: '100%', sm: 320 } }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+            endAdornment: searchQuery && (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchQuery('')} aria-label={t('clearSearch')}>
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+        {!isMobile && (effectiveViewMode === 'split' || tabIndex === 1) && (
+          <ToggleButton
+            value="spentOnly"
+            selected={spentOnly}
+            onChange={() => setSpentOnly((v) => !v)}
+            size="small"
+          >
+            {t('filter.spentOnly')}
+          </ToggleButton>
+        )}
+      </Box>
 
       {effectiveViewMode === 'tabbed' ? (
         <Box onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>

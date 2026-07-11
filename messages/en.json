@@ -219,6 +219,9 @@
       "flow": {
         "spent": "Spent",
         "received": "Received"
+      },
+      "filter": {
+        "spentOnly": "Spent only"
       }
     },
     "expenses": {

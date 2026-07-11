@@ -219,6 +219,9 @@
       "flow": {
         "spent": "Gasto",
         "received": "Ingreso"
+      },
+      "filter": {
+        "spentOnly": "Solo gastos"
       }
     },
     "expenses": {
