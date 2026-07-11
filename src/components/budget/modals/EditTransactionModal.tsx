@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import type { Transaction } from '@/gen/spendsense/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
@@ -20,8 +21,12 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
+
+type Flow = 'spent' | 'received'
 
 interface Props {
   budgetProfileId: string
@@ -31,8 +36,12 @@ interface Props {
 }
 
 function moneyToString(units: bigint, nanos: number): string {
-  const total = Number(units) + nanos / 1e9
+  const total = Math.abs(Number(units) + nanos / 1e9)
   return total.toFixed(2)
+}
+
+function amountToFlow(units: bigint, nanos: number): Flow {
+  return Number(units) + nanos / 1e9 < 0 ? 'received' : 'spent'
 }
 
 function timestampToDateString(ts: { seconds: bigint } | undefined): string {
@@ -56,6 +65,7 @@ function dayOfMonthToTimestamp(day: number): { seconds: bigint; nanos: number } 
 }
 
 export function EditTransactionModal({ budgetProfileId, transaction, onClose, onDone }: Props) {
+  const t = useTranslations('budget.transactions')
   const { showError } = useSnackbar()
   const theme = useTheme()
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
@@ -64,6 +74,9 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
   const [name, setName] = useState(transaction.name)
   const [amount, setAmount] = useState(() =>
     moneyToString(transaction.amount?.units ?? 0n, transaction.amount?.nanos ?? 0)
+  )
+  const [flow, setFlow] = useState<Flow>(() =>
+    amountToFlow(transaction.amount?.units ?? 0n, transaction.amount?.nanos ?? 0)
   )
   const [typeId, setTypeId] = useState(transaction.transactionTypeId)
   const [date, setDate] = useState(() => timestampToDateString(transaction.date))
@@ -76,7 +89,10 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
 
   useEffect(() => {
     setName(transaction.name)
-    setAmount(moneyToString(transaction.amount?.units ?? 0n, transaction.amount?.nanos ?? 0))
+    const units = transaction.amount?.units ?? 0n
+    const nanos = transaction.amount?.nanos ?? 0
+    setAmount(moneyToString(units, nanos))
+    setFlow(amountToFlow(units, nanos))
     setTypeId(transaction.transactionTypeId)
     setDate(timestampToDateString(transaction.date))
     setDayOfMonth(timestampToDayOfMonth(transaction.date))
@@ -108,13 +124,16 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
 
   async function handleSave() {
     if (!canSave) return
-    const units = Math.floor(parseFloat(amount))
-    const nanos = Math.round((parseFloat(amount) - units) * 1e9)
+    const rawAmt = parseFloat(amount)
+    // Fixed expenses are always outgoing — no flow sign
+    const signedAmt = !isFixed && flow === 'received' ? -rawAmt : rawAmt
+    const units = BigInt(Math.trunc(signedAmt))
+    const nanos = Math.round((signedAmt - Number(units)) * 1e9)
     const txDate = isFixed ? dayOfMonthToTimestamp(dayOfMonth) : dateStringToTimestamp(date)
     try {
       await mutateAsync({
         name,
-        amount: { units: BigInt(units), nanos },
+        amount: { units, nanos },
         date: txDate,
         categoryId,
         paymentMethodId,
@@ -122,7 +141,7 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
         transactionFrequencyId: recurring ? 4 : 1,
         recurring,
       })
-      logger.info('transaction.update', { budgetProfileId, id: transaction.id, name })
+      logger.info('transaction.update', { budgetProfileId, id: transaction.id, name, flow })
       onDone()
     } catch (err) {
       showError(err)
@@ -140,24 +159,30 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
             onChange={(e) => setName(e.target.value)}
             fullWidth
           />
-          <TextField
-            label="Amount"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            fullWidth
-            inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
-          />
-          <TextField
-            select
-            label="Type"
-            value={typeId}
-            onChange={(e) => setTypeId(Number(e.target.value))}
-            fullWidth
-          >
-            <MenuItem value={1}>Fixed</MenuItem>
-            <MenuItem value={2}>Variable</MenuItem>
-          </TextField>
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            {!isFixed && (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={flow}
+                onChange={(_, v) => v && setFlow(v as Flow)}
+                sx={{ alignSelf: 'center' }}
+              >
+                <ToggleButton value="spent">{t('flow.spent')}</ToggleButton>
+                <ToggleButton value="received">{t('flow.received')}</ToggleButton>
+              </ToggleButtonGroup>
+            )}
+            <TextField
+              select
+              label="Type"
+              value={typeId}
+              onChange={(e) => { const v = Number(e.target.value); setTypeId(v); if (v === 1) setFlow('spent') }}
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value={1}>Fixed</MenuItem>
+              <MenuItem value={2}>Variable</MenuItem>
+            </TextField>
+          </Stack>
           {isFixed ? (
             <TextField
               label="Day of month"
@@ -198,6 +223,14 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
             label="Payment method"
             required
             size="medium"
+          />
+          <TextField
+            label="Amount"
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            fullWidth
+            inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
           />
           {!isFixed && (
             <FormControlLabel

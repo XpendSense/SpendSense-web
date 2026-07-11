@@ -215,7 +215,11 @@
       "notDueTooltip": "Not due this period — next due {date}",
       "sortBy": "Sort by",
       "searchPlaceholder": "Search by name, category, or owner…",
-      "clearSearch": "Clear search"
+      "clearSearch": "Clear search",
+      "flow": {
+        "spent": "Spent",
+        "received": "Received"
+      }
     },
     "expenses": {
       "title": "Expense Plan",

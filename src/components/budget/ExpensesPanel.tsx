@@ -616,8 +616,8 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
                       <Typography variant="caption" color="text.secondary" display="block">{t('actual')}</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ color: headerActualColor }}>
-                        {actual > 0 ? formatMoney(actual) : '—'}
+                      <Typography variant="body2" fontWeight={600} sx={{ color: actual < 0 ? 'success.main' : headerActualColor }}>
+                        {actual > 0 ? formatMoney(actual) : actual < 0 ? `+${formatMoney(-actual)}` : '—'}
                       </Typography>
                     </Box>
                     {canEdit && !isSavings && !isFixedOnly && (
@@ -669,9 +669,9 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
                             </Typography>
                             <Typography
                               variant="body2"
-                              sx={{ minWidth: 64, textAlign: 'right', color: colorFn(personActual, displayVal ?? 0) || 'text.secondary' }}
+                              sx={{ minWidth: 64, textAlign: 'right', color: personActual < 0 ? 'success.main' : (colorFn(personActual, displayVal ?? 0) || 'text.secondary') }}
                             >
-                              {personActual > 0 ? formatMoney(personActual) : '—'}
+                              {personActual > 0 ? formatMoney(personActual) : personActual < 0 ? `+${formatMoney(-personActual)}` : '—'}
                             </Typography>
                             {canEdit && !isSavings && !isFixedOnly && (
                               <IconButton size="small" onClick={() => openEditDialog(cat, p.id, p.userName, val, alloc)}>
@@ -807,10 +807,12 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
                         ? <Typography component="span" variant="body2" color={isNotDue ? 'text.disabled' : undefined}>{formatMoney(plannedTotal)}</Typography>
                         : <Typography component="span" variant="body2" color="text.disabled">—</Typography>}
                     </TableCell>
-                    <TableCell align="right" sx={{ color }}>
+                    <TableCell align="right" sx={{ color: actual < 0 ? 'success.main' : color }}>
                       {actual > 0
                         ? formatMoney(actual)
-                        : <Typography component="span" variant="body2" color="text.disabled">—</Typography>}
+                        : actual < 0
+                          ? `+${formatMoney(-actual)}`
+                          : <Typography component="span" variant="body2" color="text.disabled">—</Typography>}
                     </TableCell>
                     <TableCell align="right">
                       {canEdit && !isSavings && !isFixedOnly && (

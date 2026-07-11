@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { BudgetService } from '@/gen/spendsense/v1/budget_connect'
 import { useClient } from '@/hooks/useClient'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
@@ -21,6 +22,8 @@ import Stack from '@mui/material/Stack'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
 import Typography from '@mui/material/Typography'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 
 interface Props {
   budgetPeriodId: string
@@ -74,13 +77,17 @@ function frequencyFieldsFor(unit: FrequencyUnitUI, count: number, dayOfWeek: num
   return { frequencyUnit: 1, intervalMonths: unit === 'year' ? count * 12 : count, intervalWeeks: 1, dayOfWeek: 1 }
 }
 
+type Flow = 'spent' | 'received'
+
 export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, embedded, defaultTypeId = 1, onClose, onSkip, onDone }: Props) {
+  const t = useTranslations('budget.transactions')
   const { showError } = useSnackbar()
   const theme = useTheme()
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
+  const [flow, setFlow] = useState<Flow>('spent')
   const [date, setDate] = useState(todayString)
   const [dayOfMonth, setDayOfMonth] = useState(todayDay)
   const [dayOfWeek, setDayOfWeek] = useState(1) // ISO 8601: 1 = Monday ... 7 = Sunday
@@ -100,6 +107,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     if (open) {
       setTypeId(defaultTypeId)
       setRecurring(defaultTypeId === 1)
+      setFlow('spent')
     }
   }, [open, defaultTypeId])
 
@@ -158,16 +166,19 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     setCategoryId(0)
     setPaymentMethodId('')
     setIsFutureStart(false)
+    setFlow('spent')
     // Intentionally keep typeId, date, and dayOfMonth so the next transaction
     // defaults to the same type and date the user just used.
   }
 
   async function handleSave() {
     if (!canSave) return
-    const units = BigInt(Math.floor(parseFloat(amount)))
-    const nanos = Math.round((parseFloat(amount) - Number(units)) * 1e9)
     try {
       if (isFixed) {
+        // Fixed expenses are always outgoing — no flow sign
+        const rawAmt = parseFloat(amount)
+        const units = BigInt(Math.trunc(rawAmt))
+        const nanos = Math.round((rawAmt - Number(units)) * 1e9)
         await createFixed({
           name,
           plannedAmount: { units, nanos },
@@ -181,6 +192,11 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         queryClient.invalidateQueries({ queryKey: ['transactions', budgetPeriodId, 1] })
         queryClient.invalidateQueries({ queryKey: ['fixed-expenses', budgetProfileId] })
       } else {
+        // Variable: spent = stored positive, received = stored negative
+        const rawAmt = parseFloat(amount)
+        const signedAmt = flow === 'received' ? -rawAmt : rawAmt
+        const units = BigInt(Math.trunc(signedAmt))
+        const nanos = Math.round((signedAmt - Number(units)) * 1e9)
         await createTx({
           name,
           amount: { units, nanos },
@@ -191,7 +207,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
           transactionFrequencyId: recurring ? 4 : 1,
           recurring,
         })
-        logger.info('transaction.create', { budgetPeriodId, name, amount })
+        logger.info('transaction.create', { budgetPeriodId, name, amount, flow })
       }
       resetForm()
       onDone()
@@ -208,18 +224,30 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         </Typography>
       )}
       <TextField label="Description" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-      <TextField
-        label="Amount"
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        fullWidth
-        inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
-      />
-      <TextField select label="Type" value={typeId} onChange={(e) => { const t = Number(e.target.value); setTypeId(t); setRecurring(t === 1) }} fullWidth>
-        <MenuItem value={1}>Fixed</MenuItem>
-        <MenuItem value={2}>Variable</MenuItem>
-      </TextField>
+      <Stack direction="row" spacing={1} alignItems="flex-start">
+        {!isFixed && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={flow}
+            onChange={(_, v) => v && setFlow(v as Flow)}
+            sx={{ alignSelf: 'center' }}
+          >
+            <ToggleButton value="spent">{t('flow.spent')}</ToggleButton>
+            <ToggleButton value="received">{t('flow.received')}</ToggleButton>
+          </ToggleButtonGroup>
+        )}
+        <TextField
+          select
+          label="Type"
+          value={typeId}
+          onChange={(e) => { const v = Number(e.target.value); setTypeId(v); setRecurring(v === 1); if (v === 1) setFlow('spent') }}
+          sx={{ flex: 1 }}
+        >
+          <MenuItem value={1}>Fixed</MenuItem>
+          <MenuItem value={2}>Variable</MenuItem>
+        </TextField>
+      </Stack>
       {isFixed ? (
         <>
           {isFutureStart ? (
@@ -309,6 +337,14 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         label="Payment method"
         required={!isFixed}
         size="medium"
+      />
+      <TextField
+        label="Amount"
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        fullWidth
+        inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
       />
       {!isFixed && (
         <FormControlLabel

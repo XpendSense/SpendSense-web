@@ -215,7 +215,11 @@
       "notDueTooltip": "No vence este período — próximo vencimiento {date}",
       "sortBy": "Ordenar por",
       "searchPlaceholder": "Buscar por nombre, categoría o titular…",
-      "clearSearch": "Borrar búsqueda"
+      "clearSearch": "Borrar búsqueda",
+      "flow": {
+        "spent": "Gasto",
+        "received": "Ingreso"
+      }
     },
     "expenses": {
       "title": "Plan de Gastos",
