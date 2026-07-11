@@ -213,7 +213,12 @@ export function EditTransactionModal({ budgetProfileId, transaction, onClose, on
           >
             <MenuItem value={0}>— None —</MenuItem>
             {(categoriesData?.categories ?? []).map((c) => (
-              <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              <MenuItem key={c.id} value={c.id}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {c.color && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />}
+                  {c.name}
+                </Box>
+              </MenuItem>
             ))}
           </TextField>
           <PaymentMethodSelect

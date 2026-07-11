@@ -18,6 +18,7 @@ import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
+import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
@@ -327,7 +328,12 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
       <TextField select label="Category" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} fullWidth>
         <MenuItem value={0}>— None —</MenuItem>
         {(categoriesData?.categories ?? []).map((c) => (
-          <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+          <MenuItem key={c.id} value={c.id}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {c.color && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />}
+              {c.name}
+            </Box>
+          </MenuItem>
         ))}
       </TextField>
       <PaymentMethodSelect
