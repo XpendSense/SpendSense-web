@@ -108,18 +108,20 @@ function ConnectionRow({
         </Typography>
       </Stack>
 
-      <Tooltip title={t('disconnect')}>
-        <span>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={onDisconnect}
-            disabled={disconnecting}
-          >
-            {disconnecting ? <CircularProgress size={16} /> : <LinkOffIcon fontSize="small" />}
-          </IconButton>
-        </span>
-      </Tooltip>
+      {conn.status !== 'disconnected' && (
+        <Tooltip title={t('disconnect')}>
+          <span>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={onDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? <CircularProgress size={16} /> : <LinkOffIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
     </Box>
   )
 }
