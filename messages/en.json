@@ -331,6 +331,14 @@
         "friday": "Friday",
         "saturday": "Saturday",
         "sunday": "Sunday"
+      },
+      "paymentPlan": {
+        "label": "Payment plan (optional)",
+        "numberOfPayments": "Number of payments",
+        "numberOfPaymentsHint": "Total payments in the plan — sets the end date automatically",
+        "endDate": "End date",
+        "endDateHint": "Last payment date — sets the number of payments automatically",
+        "paymentsMade": "{made} of {total} payments made"
       }
     },
     "fab": {

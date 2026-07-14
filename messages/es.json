@@ -331,6 +331,14 @@
         "friday": "Viernes",
         "saturday": "Sábado",
         "sunday": "Domingo"
+      },
+      "paymentPlan": {
+        "label": "Plan de pagos (opcional)",
+        "numberOfPayments": "Número de pagos",
+        "numberOfPaymentsHint": "Total de pagos del plan — establece la fecha de fin automáticamente",
+        "endDate": "Fecha de fin",
+        "endDateHint": "Fecha del último pago — establece el número de pagos automáticamente",
+        "paymentsMade": "{made} de {total} pagos realizados"
       }
     },
     "fab": {
