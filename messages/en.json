@@ -256,8 +256,13 @@
     },
     "markForReview": {
       "title": "Flag for Review",
-      "flagging": "Transaction",
+      "date": "Date",
+      "category": "Category",
+      "paymentMethod": "Payment method",
+      "owner": "Owner",
+      "filterPlaceholder": "Filter fixed expenses…",
       "noFixed": "No active fixed expenses to match against.",
+      "noResults": "No fixed expenses match your search.",
       "confirm": "Flag",
       "cancel": "Cancel"
     },

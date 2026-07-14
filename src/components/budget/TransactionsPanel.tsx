@@ -448,7 +448,7 @@ function TransactionTable({
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              {!isFixed && isRowEditable(tx) && (
+                              {!isFixed && isEditable && (
                                 <Tooltip title={t('markForReview')}>
                                   <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
                                     <FlagIcon fontSize="small" />
@@ -537,6 +537,9 @@ function TransactionTable({
           transaction={markReviewTarget}
           budgetProfileId={budgetProfileId}
           budgetPeriodId={budgetPeriodId}
+          categoryMap={categoryMap}
+          methodMap={methodMap}
+          personMap={personMap}
           onClose={() => setMarkReviewTarget(null)}
         />
       </>
@@ -664,7 +667,7 @@ function TransactionTable({
                                 </IconButton>
                               </Tooltip>
                             )}
-                            {!isFixed && isRowEditable(tx) && (
+                            {!isFixed && isEditable && (
                               <Tooltip title={t('markForReview')}>
                                 <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
                                   <FlagIcon fontSize="small" />
@@ -754,6 +757,9 @@ function TransactionTable({
         transaction={markReviewTarget}
         budgetProfileId={budgetProfileId}
         budgetPeriodId={budgetPeriodId}
+        categoryMap={categoryMap}
+        methodMap={methodMap}
+        personMap={personMap}
         onClose={() => setMarkReviewTarget(null)}
       />
     </>

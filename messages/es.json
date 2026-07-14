@@ -256,8 +256,13 @@
     },
     "markForReview": {
       "title": "Marcar para revisión",
-      "flagging": "Transacción",
+      "date": "Fecha",
+      "category": "Categoría",
+      "paymentMethod": "Método de pago",
+      "owner": "Titular",
+      "filterPlaceholder": "Filtrar gastos fijos…",
       "noFixed": "No hay gastos fijos activos para comparar.",
+      "noResults": "Ningún gasto fijo coincide con tu búsqueda.",
       "confirm": "Marcar",
       "cancel": "Cancelar"
     },
