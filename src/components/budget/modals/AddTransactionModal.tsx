@@ -44,10 +44,6 @@ function todayString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function todayDay(): number {
-  return new Date().getDate()
-}
-
 function dateStringToTimestamp(str: string): { seconds: bigint; nanos: number } {
   const [year, month, day] = str.split('-').map(Number)
   return { seconds: BigInt(Math.floor(Date.UTC(year, month - 1, day) / 1000)), nanos: 0 }
@@ -60,16 +56,6 @@ const FREQUENCY_COUNT_RANGE: Record<FrequencyUnitUI, { min: number; max: number 
   month: { min: 1, max: 24 },
   year: { min: 1, max: 10 },
 }
-
-const DAY_OF_WEEK_OPTIONS = [
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-  { value: 7, label: 'Sunday' },
-]
 
 // frequencyUnit wire values: 1 = MONTH (default, also covers YEAR client-side
 // via interval_months = years * 12), 2 = WEEK.
@@ -119,12 +105,9 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
   const [amount, setAmount] = useState('')
   const [flow, setFlow] = useState<Flow>('spent')
   const [date, setDate] = useState(todayString)
-  const [dayOfMonth, setDayOfMonth] = useState(todayDay)
-  const [dayOfWeek, setDayOfWeek] = useState(1) // ISO 8601: 1 = Monday ... 7 = Sunday
+  const [startDateStr, setStartDateStr] = useState(todayString)
   const [frequencyUnitUI, setFrequencyUnitUI] = useState<FrequencyUnitUI>('month')
   const [frequencyCount, setFrequencyCount] = useState(1)
-  const [isFutureStart, setIsFutureStart] = useState(false)
-  const [anchorDateStr, setAnchorDateStr] = useState(todayString)
   const [endDateStr, setEndDateStr] = useState('')
   const [paymentsInput, setPaymentsInput] = useState('')
   const [categoryId, setCategoryId] = useState<number>(0)
@@ -181,16 +164,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
   const isPending = txPending || fixedPending
 
   function getAnchor(): Date {
-    if (isFutureStart && anchorDateStr) return parseUTCDate(anchorDateStr)
-    const today = new Date()
-    if (frequencyUnitUI === 'week') {
-      const todayDow = today.getUTCDay() || 7
-      const daysUntil = (dayOfWeek - todayDow + 7) % 7
-      return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + daysUntil))
-    }
-    const dom = dayOfMonth || today.getUTCDate()
-    const thisMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), dom))
-    return thisMonth >= today ? thisMonth : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom))
+    return parseUTCDate(startDateStr)
   }
 
   function recalcEndDate(payments: string, unit: FrequencyUnitUI, count: number) {
@@ -233,13 +207,7 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     setPaymentsInput(String(Math.max(1, payments)))
   }
 
-  const isDateValid = isFixed
-    ? isFutureStart
-      ? !!anchorDateStr
-      : frequencyUnitUI === 'week'
-        ? dayOfWeek >= 1 && dayOfWeek <= 7
-        : dayOfMonth >= 1 && dayOfMonth <= 31
-    : !!date
+  const isDateValid = isFixed ? !!startDateStr : !!date
   const canSave = !!name.trim() && !!amount && isDateValid && (isFixed || !!paymentMethodId)
 
   function resetForm() {
@@ -247,12 +215,11 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
     setAmount('')
     setCategoryId(0)
     setPaymentMethodId('')
-    setIsFutureStart(false)
+    setStartDateStr(todayString())
     setEndDateStr('')
     setPaymentsInput('')
     setFlow('spent')
-    // Intentionally keep typeId, date, and dayOfMonth so the next transaction
-    // defaults to the same type and date the user just used.
+    // Intentionally keep typeId and date so the next transaction defaults to the same type/date.
   }
 
   async function handleSave() {
@@ -266,14 +233,17 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         const totalPayments = parseInt(paymentsInput, 10) || 0
         let endDate: Timestamp | undefined
         if (endDateStr) endDate = Timestamp.fromDate(parseUTCDate(endDateStr))
+        const startDate = parseUTCDate(startDateStr)
+        const derivedDayOfMonth = startDate.getUTCDate()
+        const derivedDayOfWeek = startDate.getUTCDay() || 7
         await createFixed({
           name,
           plannedAmount: { units, nanos },
           categoryId,
           paymentMethodId,
-          dayOfMonth,
-          ...frequencyFieldsFor(frequencyUnitUI, frequencyCount, dayOfWeek),
-          ...(isFutureStart ? { anchorDate: dateStringToTimestamp(anchorDateStr) } : {}),
+          dayOfMonth: derivedDayOfMonth,
+          ...frequencyFieldsFor(frequencyUnitUI, frequencyCount, derivedDayOfWeek),
+          anchorDate: dateStringToTimestamp(startDateStr),
           endDate,
           totalPayments,
         })
@@ -339,44 +309,15 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
       </Stack>
       {isFixed ? (
         <>
-          {isFutureStart ? (
-            <TextField
-              label="Start date"
-              type="date"
-              value={anchorDateStr}
-              onChange={(e) => setAnchorDateStr(e.target.value)}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-              helperText="First date this expense is due — no transaction until then"
-            />
-          ) : frequencyUnitUI === 'week' ? (
-            <TextField
-              select
-              label="Day of week"
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(Number(e.target.value))}
-              fullWidth
-              helperText="Which day of the week this expense falls on"
-            >
-              {DAY_OF_WEEK_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-              ))}
-            </TextField>
-          ) : (
-            <TextField
-              label="Day of month"
-              type="number"
-              value={dayOfMonth}
-              onChange={(e) => setDayOfMonth(Math.min(31, Math.max(1, Number(e.target.value))))}
-              fullWidth
-              inputProps={{ min: 1, max: 31, inputMode: 'decimal' }}
-              helperText="Which day of the month this expense falls on"
-            />
-          )}
-          <FormControlLabel
-            control={<Checkbox checked={isFutureStart} onChange={(e) => setIsFutureStart(e.target.checked)} />}
-            label="This expense starts in the future"
+          <TextField
+            label="Start date"
+            type="date"
+            value={startDateStr}
+            onChange={(e) => { setStartDateStr(e.target.value); if (paymentsInput) recalcEndDate(paymentsInput, frequencyUnitUI, frequencyCount) }}
+            fullWidth
+            required
+            InputLabelProps={{ shrink: true }}
+            helperText="First payment date — past dates backdate the plan, future dates start it later"
           />
           <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="flex-start">
             <TextField

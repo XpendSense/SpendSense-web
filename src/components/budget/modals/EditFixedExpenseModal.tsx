@@ -20,8 +20,6 @@ import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Checkbox from '@mui/material/Checkbox'
 import Divider from '@mui/material/Divider'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
@@ -82,8 +80,6 @@ const FREQUENCY_COUNT_RANGE: Record<FrequencyUnitUI, { min: number; max: number 
   year: { min: 1, max: 10 },
 }
 
-const DAY_OF_WEEK_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
-
 function frequencyUnitUIFromWire(frequencyUnit: number): FrequencyUnitUI {
   return frequencyUnit === 2 ? 'week' : 'month'
 }
@@ -108,14 +104,16 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
   )
   const [categoryId, setCategoryId] = useState(fixedExpense.categoryId)
   const [paymentMethodId, setPaymentMethodId] = useState(fixedExpense.paymentMethodId)
-  const [dayOfMonth, setDayOfMonth] = useState(fixedExpense.dayOfMonth)
-  const [dayOfWeek, setDayOfWeek] = useState(fixedExpense.dayOfWeek || 1)
   const [frequencyUnitUI, setFrequencyUnitUI] = useState<FrequencyUnitUI>(() => frequencyUnitUIFromWire(fixedExpense.frequencyUnit))
   const [frequencyCount, setFrequencyCount] = useState(() =>
     frequencyUnitUIFromWire(fixedExpense.frequencyUnit) === 'week' ? (fixedExpense.intervalWeeks || 1) : (fixedExpense.intervalMonths || 1)
   )
-  const [isFutureStart, setIsFutureStart] = useState(!!fixedExpense.anchorDate?.seconds)
-  const [anchorDateStr, setAnchorDateStr] = useState(() => timestampToDateString(fixedExpense.anchorDate))
+  const [startDateStr, setStartDateStr] = useState(() => {
+    if (fixedExpense.anchorDate?.seconds) return timestampToDateString(fixedExpense.anchorDate)
+    const today = new Date()
+    const dom = fixedExpense.dayOfMonth || today.getUTCDate()
+    return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(dom).padStart(2, '0')}`
+  })
 
   const [endDateStr, setEndDateStr] = useState(() =>
     fixedExpense.endDate?.seconds ? timestampToDateString(fixedExpense.endDate) : ''
@@ -129,30 +127,22 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
     setAmount(moneyToString(fixedExpense.plannedAmount?.units ?? 0n, fixedExpense.plannedAmount?.nanos ?? 0))
     setCategoryId(fixedExpense.categoryId)
     setPaymentMethodId(fixedExpense.paymentMethodId)
-    setDayOfMonth(fixedExpense.dayOfMonth)
-    setDayOfWeek(fixedExpense.dayOfWeek || 1)
     const unit = frequencyUnitUIFromWire(fixedExpense.frequencyUnit)
     setFrequencyUnitUI(unit)
     setFrequencyCount(unit === 'week' ? (fixedExpense.intervalWeeks || 1) : (fixedExpense.intervalMonths || 1))
-    setIsFutureStart(!!fixedExpense.anchorDate?.seconds)
-    setAnchorDateStr(timestampToDateString(fixedExpense.anchorDate))
+    if (fixedExpense.anchorDate?.seconds) {
+      setStartDateStr(timestampToDateString(fixedExpense.anchorDate))
+    } else {
+      const today = new Date()
+      const dom = fixedExpense.dayOfMonth || today.getUTCDate()
+      setStartDateStr(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(dom).padStart(2, '0')}`)
+    }
     setEndDateStr(fixedExpense.endDate?.seconds ? timestampToDateString(fixedExpense.endDate) : '')
     setPaymentsInput(fixedExpense.totalPayments > 0 ? String(fixedExpense.totalPayments) : '')
   }, [fixedExpense])
 
   function getAnchor(): Date {
-    if (isFutureStart && anchorDateStr) return parseUTCDate(anchorDateStr)
-    if (fixedExpense.anchorDate?.seconds) return new Date(Number(fixedExpense.anchorDate.seconds) * 1000)
-    // No explicit anchor — use the first upcoming occurrence based on day-of-month/week
-    const today = new Date()
-    if (frequencyUnitUI === 'week') {
-      const todayDow = today.getUTCDay() || 7 // convert Sun=0 to 7
-      const daysUntil = (dayOfWeek - todayDow + 7) % 7
-      return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + daysUntil))
-    }
-    const dom = dayOfMonth || today.getUTCDate()
-    const thisMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), dom))
-    return thisMonth >= today ? thisMonth : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom))
+    return parseUTCDate(startDateStr)
   }
 
   function handleFrequencyUnitChange(next: FrequencyUnitUI) {
@@ -232,13 +222,7 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
     }) => client.updateFixedExpense({ id: fixedExpense.id, budgetProfileId, ...vars }),
   })
 
-  const canSave = !!name.trim() && !!amount && (
-    isFutureStart
-      ? !!anchorDateStr
-      : frequencyUnitUI === 'week'
-        ? dayOfWeek >= 1 && dayOfWeek <= 7
-        : dayOfMonth >= 1 && dayOfMonth <= 31
-  )
+  const canSave = !!name.trim() && !!amount && !!startDateStr
 
   async function handleSave() {
     if (!canSave) return
@@ -249,15 +233,18 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
     if (endDateStr) {
       endDate = Timestamp.fromDate(parseUTCDate(endDateStr))
     }
+    const startDate = parseUTCDate(startDateStr)
+    const derivedDayOfMonth = startDate.getUTCDate()
+    const derivedDayOfWeek = startDate.getUTCDay() || 7
     try {
       await mutateAsync({
         name,
         plannedAmount: { units: BigInt(units), nanos },
         categoryId,
         paymentMethodId,
-        dayOfMonth,
-        ...frequencyFieldsFor(frequencyUnitUI, frequencyCount, dayOfWeek),
-        ...(isFutureStart ? { anchorDate: dateStringToTimestamp(anchorDateStr) } : {}),
+        dayOfMonth: derivedDayOfMonth,
+        ...frequencyFieldsFor(frequencyUnitUI, frequencyCount, derivedDayOfWeek),
+        anchorDate: dateStringToTimestamp(startDateStr),
         endDate,
         totalPayments,
       })
@@ -285,44 +272,15 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
             fullWidth
             inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
           />
-          {isFutureStart ? (
-            <TextField
-              label={t('fields.anchorDate')}
-              type="date"
-              value={anchorDateStr}
-              onChange={(e) => setAnchorDateStr(e.target.value)}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-              helperText={t('fields.anchorDateHint')}
-            />
-          ) : frequencyUnitUI === 'week' ? (
-            <TextField
-              select
-              label={t('fields.dayOfWeek')}
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(Number(e.target.value))}
-              fullWidth
-              helperText={t('fields.dayOfWeekHint')}
-            >
-              {DAY_OF_WEEK_KEYS.map((key, i) => (
-                <MenuItem key={key} value={i + 1}>{t(`days.${key}`)}</MenuItem>
-              ))}
-            </TextField>
-          ) : (
-            <TextField
-              label={t('fields.dayOfMonth')}
-              type="number"
-              value={dayOfMonth}
-              onChange={(e) => setDayOfMonth(Math.min(31, Math.max(1, Number(e.target.value))))}
-              fullWidth
-              inputProps={{ min: 1, max: 31, inputMode: 'decimal' }}
-              helperText={t('fields.dayOfMonthHint')}
-            />
-          )}
-          <FormControlLabel
-            control={<Checkbox checked={isFutureStart} onChange={(e) => setIsFutureStart(e.target.checked)} />}
-            label={t('fields.startsInFuture')}
+          <TextField
+            label={t('fields.startDate')}
+            type="date"
+            value={startDateStr}
+            onChange={(e) => { setStartDateStr(e.target.value); if (paymentsInput) handlePaymentsChange(paymentsInput) }}
+            fullWidth
+            required
+            InputLabelProps={{ shrink: true }}
+            helperText={t('fields.startDateHint')}
           />
           <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="flex-start">
             <TextField
