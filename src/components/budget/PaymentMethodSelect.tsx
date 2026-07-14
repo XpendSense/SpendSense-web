@@ -56,7 +56,7 @@ export function PaymentMethodSelect({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {m.color && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: m.color, flexShrink: 0 }} />}
-        <span>{m.name}{person ? ` · ${person.userName}` : ''}</span>
+        <span>{m.alias || m.name}{person ? ` · ${person.userName}` : ''}</span>
       </Box>
     )
   }
@@ -85,7 +85,7 @@ export function PaymentMethodSelect({
                   }}
                 />
                 <Box>
-                  <Typography variant="body2" sx={{ lineHeight: 1.3 }}>{m.name}</Typography>
+                  <Typography variant="body2" sx={{ lineHeight: 1.3 }}>{m.alias || m.name}</Typography>
                   {person && (
                     <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
                       {person.userName}

@@ -391,7 +391,7 @@ export function PeoplePanel({ budgetProfileId, canManageUsers = true }: Props) {
                     </MenuItem>
                   ) : (
                     replacementPersonPMs.map((pm) => (
-                      <MenuItem key={pm.id} value={pm.id}>{pm.name}</MenuItem>
+                      <MenuItem key={pm.id} value={pm.id}>{pm.alias || pm.name}</MenuItem>
                     ))
                   )}
                 </Select>

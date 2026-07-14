@@ -90,7 +90,7 @@ export function SavingsPanel({ budgetProfileId, activePeriodStart, addOpen = fal
   const sources = data?.sources ?? []
   const people = peopleData?.people ?? []
   const personMap = new Map(people.map((p) => [p.id.toString(), p.userName]))
-  const pmMap = new Map((pmData?.methods ?? []).map((pm) => [pm.id, pm.name]))
+  const pmMap = new Map((pmData?.methods ?? []).map((pm) => [pm.id, pm.alias || pm.name]))
   const savingsTotal = sources.reduce((sum, s) => sum + Number(s.amount?.units ?? 0n) + (s.amount?.nanos ?? 0) / 1e9, 0)
 
   if (isLoading) return <CircularProgress size={20} />

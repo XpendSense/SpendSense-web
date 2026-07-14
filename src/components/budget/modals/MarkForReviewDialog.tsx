@@ -135,7 +135,7 @@ export function MarkForReviewDialog({
               {method && (
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">{t('paymentMethod')}</Typography>
-                  <Typography variant="body2">{method.name}</Typography>
+                  <Typography variant="body2">{method.alias || method.name}</Typography>
                 </Box>
               )}
               {owner && (

@@ -194,8 +194,11 @@
       },
       "editDialog": {
         "title": "Edit payment method",
-        "name": "Name",
+        "alias": "Display name (optional)",
+        "aliasHint": "Shown everywhere instead of the original name",
+        "name": "Original name",
         "namePlaceholder": "e.g. Chase Visa",
+        "nameHint": "The underlying name — leave as-is to keep the imported name",
         "colorOptional": "Color (optional)",
         "cancel": "Cancel",
         "save": "Save",

@@ -65,6 +65,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
 
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null)
   const [editName, setEditName] = useState('')
+  const [editAlias, setEditAlias] = useState('')
   const [editColor, setEditColor] = useState('')
 
   const [deletingMethod, setDeletingMethod] = useState<PaymentMethod | null>(null)
@@ -94,7 +95,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
   })
 
   const { mutateAsync: doUpdate, isPending: isUpdating } = useMutation({
-    mutationFn: (vars: { id: string; name: string; color: string }) => client.updatePaymentMethod(vars),
+    mutationFn: (vars: { id: string; name: string; color: string; alias: string }) => client.updatePaymentMethod(vars),
   })
 
   const { mutateAsync: doDelete, isPending: isDeleting } = useMutation({
@@ -120,6 +121,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
   function openEdit(method: PaymentMethod) {
     setEditingMethod(method)
     setEditName(method.name)
+    setEditAlias(method.alias)
     setEditColor(method.color)
   }
 
@@ -131,7 +133,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
       try {
         await doDelete({ id: method.id, replacementId: replacement.id, budgetProfileId })
         logger.info('paymentMethod.deactivate', { id: method.id, replacementId: replacement.id, budgetProfileId })
-        showSuccess(`"${method.name}" deactivated`)
+        showSuccess(`"${method.alias || method.name}" deactivated`)
         refetch()
       } catch (err) {
         showError(err)
@@ -147,7 +149,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
     try {
       await doDelete({ id: deletingMethod.id, replacementId, budgetProfileId })
       logger.info('paymentMethod.deactivate', { id: deletingMethod.id, replacementId, budgetProfileId })
-      showSuccess(`"${deletingMethod.name}" deactivated`)
+      showSuccess(`"${deletingMethod.alias || deletingMethod.name}" deactivated`)
       setDeletingMethod(null)
       refetch()
     } catch (err) {
@@ -158,9 +160,9 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
   async function handleUpdate() {
     if (!editingMethod) return
     try {
-      await doUpdate({ id: editingMethod.id, name: editName, color: editColor })
-      logger.info('paymentMethod.update', { id: editingMethod.id, name: editName })
-      showSuccess(`Renamed to "${editName}"`)
+      await doUpdate({ id: editingMethod.id, name: editName, color: editColor, alias: editAlias })
+      logger.info('paymentMethod.update', { id: editingMethod.id, name: editName, alias: editAlias })
+      showSuccess(`"${editAlias || editName}" updated`)
       setEditingMethod(null)
       refetch()
     } catch (err) {
@@ -222,8 +224,13 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
                 }
               >
                 <ListItemText
-                  primary={m.name}
-                  secondary={personName ?? undefined}
+                  primary={m.alias || m.name}
+                  secondary={
+                    <>
+                      {m.alias && <span style={{ opacity: 0.5 }}>{m.name} · </span>}
+                      {personName}
+                    </>
+                  }
                 />
                 <Chip
                   label={PaymentType[m.type]}
@@ -310,7 +317,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              {t('deactivateDialog.body', { name: deletingMethod?.name ?? '' })}
+              {t('deactivateDialog.body', { name: deletingMethod ? (deletingMethod.alias || deletingMethod.name) : '' })}
             </Typography>
             <TextField
               select
@@ -325,7 +332,7 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
                   const owner = m.budgetPersonId !== 0n ? personMap.get(m.budgetPersonId.toString()) : undefined
                   return (
                     <MenuItem key={m.id} value={m.id}>
-                      {m.name}{owner ? ` · ${owner}` : ''}
+                      {m.alias || m.name}{owner ? ` · ${owner}` : ''}
                     </MenuItem>
                   )
                 })}
@@ -357,11 +364,20 @@ export function PaymentMethodsPanel({ budgetProfileId, budgetPeriodId, canEdit =
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
+              label={t('editDialog.alias')}
+              value={editAlias}
+              onChange={(e) => setEditAlias(e.target.value)}
+              fullWidth
+              placeholder={editName}
+              helperText={t('editDialog.aliasHint')}
+            />
+            <TextField
               label={t('editDialog.name')}
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               fullWidth
               placeholder={t('editDialog.namePlaceholder')}
+              helperText={t('editDialog.nameHint')}
             />
             <Box>
               <Typography variant="caption" color="text.secondary" display="block" mb={1}>

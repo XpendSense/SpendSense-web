@@ -132,7 +132,9 @@ export function resolveCategoryName(categoryId: number, categoryMap: Map<number,
 }
 
 export function resolveMethodName(paymentMethodId: string, methodMap: Map<string, PaymentMethod>): string {
-  return paymentMethodId ? (methodMap.get(paymentMethodId)?.name ?? '') : ''
+  if (!paymentMethodId) return ''
+  const m = methodMap.get(paymentMethodId)
+  return m ? (m.alias || m.name) : ''
 }
 
 export function resolveOwnerName(
@@ -433,7 +435,7 @@ function TransactionTable({
                             {(method || person) && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 {method && (
-                                  <Typography variant="caption" sx={{ color: method.color || 'text.secondary' }}>{method.name}</Typography>
+                                  <Typography variant="caption" sx={{ color: method.color || 'text.secondary' }}>{method.alias || method.name}</Typography>
                                 )}
                                 {method && person && (
                                   <Typography variant="caption" color="text.secondary">·</Typography>
@@ -527,7 +529,7 @@ function TransactionTable({
                             {(method || person) && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 {method && (
-                                  <Typography variant="caption" color="text.disabled">{method.name}</Typography>
+                                  <Typography variant="caption" color="text.disabled">{method.alias || method.name}</Typography>
                                 )}
                                 {method && person && (
                                   <Typography variant="caption" color="text.disabled">·</Typography>
@@ -669,7 +671,7 @@ function TransactionTable({
                       <TableCell>
                         {method && (
                           <Typography variant="body2" sx={{ color: method.color || 'inherit' }}>
-                            {method.name}
+                            {method.alias || method.name}
                           </Typography>
                         )}
                       </TableCell>
@@ -767,7 +769,7 @@ function TransactionTable({
                       </TableCell>
                       <TableCell>
                         {method && (
-                          <Typography variant="body2" color="text.disabled">{method.name}</Typography>
+                          <Typography variant="body2" color="text.disabled">{method.alias || method.name}</Typography>
                         )}
                       </TableCell>
                       <TableCell>
