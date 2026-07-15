@@ -12,6 +12,7 @@ import {
   resolveOwnerName,
   matchesSearch,
   compareTransactions,
+  groupTransactionsByDay,
 } from '../TransactionsPanel'
 import type { Transaction, Category, PaymentMethod, BudgetPerson } from '@/gen/wellspent/v1/budget_pb'
 
@@ -154,5 +155,52 @@ describe('compareTransactions', () => {
     const a = makeTransaction({ id: 'a', name: 'Same' })
     const b = makeTransaction({ id: 'b', name: 'Same' })
     expect(compareTransactions(a, b, 'name', 'asc', categoryMap, methodMap, personMap)).toBeLessThan(0)
+  })
+})
+
+describe('groupTransactionsByDay', () => {
+  const day1 = BigInt(Date.UTC(2026, 11, 12) / 1000)
+  const day2 = BigInt(Date.UTC(2026, 11, 13) / 1000)
+
+  it('groups transactions that fall on the same day together', () => {
+    const a = makeTransaction({ id: 'a', date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', date: { seconds: day1, nanos: 0 } })
+    const c = makeTransaction({ id: 'c', date: { seconds: day2, nanos: 0 } })
+    const groups = groupTransactionsByDay([a, b, c], 'day', 'asc', categoryMap, methodMap, personMap)
+    expect(groups).toHaveLength(2)
+    expect(groups[0].transactions.map((t) => t.id).sort()).toEqual(['a', 'b'])
+    expect(groups[1].transactions.map((t) => t.id)).toEqual(['c'])
+  })
+
+  it('orders day groups chronologically ascending', () => {
+    const a = makeTransaction({ id: 'a', date: { seconds: day2, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', date: { seconds: day1, nanos: 0 } })
+    const groups = groupTransactionsByDay([a, b], 'day', 'asc', categoryMap, methodMap, personMap)
+    expect(groups.map((g) => g.day)).toEqual([Number(day1), Number(day2)])
+  })
+
+  it('orders day groups descending when sortDir is desc', () => {
+    const a = makeTransaction({ id: 'a', date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', date: { seconds: day2, nanos: 0 } })
+    const groups = groupTransactionsByDay([a, b], 'day', 'desc', categoryMap, methodMap, personMap)
+    expect(groups.map((g) => g.day)).toEqual([Number(day2), Number(day1)])
+  })
+
+  it('sorts transactions within a day group by the given sort key', () => {
+    const a = makeTransaction({ id: 'a', name: 'Zebra', date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', name: 'Apple', date: { seconds: day1, nanos: 0 } })
+    const groups = groupTransactionsByDay([a, b], 'name', 'asc', categoryMap, methodMap, personMap)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].transactions.map((t) => t.name)).toEqual(['Apple', 'Zebra'])
+  })
+
+  it('formats the group label as weekday + month + day', () => {
+    const a = makeTransaction({ id: 'a', date: { seconds: day1, nanos: 0 } })
+    const groups = groupTransactionsByDay([a], 'day', 'asc', categoryMap, methodMap, personMap)
+    expect(groups[0].label).toBe('Sat, December 12')
+  })
+
+  it('returns no groups for an empty transaction list', () => {
+    expect(groupTransactionsByDay([], 'day', 'asc', categoryMap, methodMap, personMap)).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
@@ -127,6 +127,16 @@ function resolveDay(t: Transaction): number {
   return Number(t.date?.seconds ?? 0n)
 }
 
+function formatDayHeader(ts: { seconds: bigint } | undefined): string {
+  if (!ts || ts.seconds === 0n) return ''
+  return new Date(Number(ts.seconds) * 1000).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
 export function resolveCategoryName(categoryId: number, categoryMap: Map<number, Category>): string {
   return categoryId ? (categoryMap.get(categoryId)?.name ?? '') : ''
 }
@@ -193,6 +203,35 @@ export function compareTransactions(
       break
   }
   return primary !== 0 ? primary : a.id.localeCompare(b.id)
+}
+
+export interface TransactionDayGroup {
+  day: number
+  label: string
+  transactions: Transaction[]
+}
+
+export function groupTransactionsByDay(
+  transactions: Transaction[],
+  sortKey: SortKey,
+  sortDir: 'asc' | 'desc',
+  categoryMap: Map<number, Category>,
+  methodMap: Map<string, PaymentMethod>,
+  personMap: Map<string, BudgetPerson>,
+): TransactionDayGroup[] {
+  const groups = new Map<number, Transaction[]>()
+  transactions.forEach((tx) => {
+    const key = resolveDay(tx)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(tx)
+  })
+  const dirSign = sortDir === 'asc' ? 1 : -1
+  const days = [...groups.keys()].sort((a, b) => (a - b) * dirSign)
+  return days.map((day) => {
+    const dayTransactions = [...groups.get(day)!].sort((a, b) =>
+      compareTransactions(a, b, sortKey, sortDir, categoryMap, methodMap, personMap))
+    return { day, label: formatDayHeader(dayTransactions[0]?.date), transactions: dayTransactions }
+  })
 }
 
 function SortHeader({
@@ -337,10 +376,167 @@ function TransactionTable({
   const sorted = [...filteredTransactions].sort((a, b) =>
     compareTransactions(a, b, sortKey, sortDir, categoryMap, methodMap, personMap))
 
+  const dayGroups = isFixed
+    ? []
+    : groupTransactionsByDay(filteredTransactions, sortKey, sortDir, categoryMap, methodMap, personMap)
+
   if (isLoading) return <CircularProgress size={20} />
 
   if (isMobile) {
     const colSpan = isEditable ? 3 : 2
+
+    const renderRow = (tx: Transaction) => {
+      const category = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
+      const method = tx.paymentMethodId ? methodMap.get(tx.paymentMethodId) : undefined
+      const person = method?.budgetPersonId && method.budgetPersonId !== 0n
+        ? personMap.get(method.budgetPersonId.toString())
+        : undefined
+      const dateStr = formatDate(tx.date)
+      return (
+        <TableRow key={tx.id} hover>
+          <TableCell>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="body2" fontWeight={500}>{tx.name}</Typography>
+                {isFixed && tx.fixedExpenseId && (() => {
+                  const fe = fixedExpenseMap?.get(tx.fixedExpenseId)
+                  const progress = fe ? paymentProgress(fe) : null
+                  return progress ? (
+                    <Typography variant="caption" color="text.secondary">({progress})</Typography>
+                  ) : null
+                })()}
+              </Box>
+              {isFixed && dateStr && (
+                <Typography variant="caption" color="text.secondary">{dateStr}</Typography>
+              )}
+              {(method || person) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {method && (
+                    <Typography variant="caption" sx={{ color: method.color || 'text.secondary' }}>{method.alias || method.name}</Typography>
+                  )}
+                  {method && person && (
+                    <Typography variant="caption" color="text.secondary">·</Typography>
+                  )}
+                  {person && (
+                    <Typography variant="caption" sx={{ color: person.color || 'text.secondary' }}>{person.userName}</Typography>
+                  )}
+                </Box>
+              )}
+              {category && (
+                <Typography variant="caption" sx={{ color: category.color || 'text.secondary' }}>{category.name}</Typography>
+              )}
+            </Box>
+          </TableCell>
+          <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 1.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              {isFixed ? (
+                <Typography variant="body2">{formatMoney(txPlannedAmount(tx))}</Typography>
+              ) : (() => {
+                const { text, color } = formatVariableAmount(txAmount(tx))
+                return <Typography variant="body2" color={color ?? 'inherit'}>{text}</Typography>
+              })()}
+              {isFixed && tx.isPaid && (
+                <Typography variant="caption" color="success.main">
+                  {t('paid')}: {formatMoney(txAmount(tx))}
+                </Typography>
+              )}
+            </Box>
+          </TableCell>
+          {isEditable && (
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 0.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {canMarkPaid(tx) && (
+                  <Tooltip title={t('markAsPaid.title')}>
+                    <IconButton size="small" onClick={() => setMarkPaidTarget(tx)} color="default">
+                      <CheckCircleOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {isFixed && tx.isPaid && (
+                  <Tooltip title={t('markAsPaid.alreadyPaid')}>
+                    <IconButton size="small" onClick={() => handleUnmark(tx)} disabled={unmarkPending} color="success">
+                      <CheckCircleIcon fontSize="small" color="success" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {!isFixed && isEditable && (
+                  <Tooltip title={t('markForReview')}>
+                    <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
+                      <FlagIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {isRowEditable(tx) && (
+                  <>
+                    <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(tx)}><DeleteIcon fontSize="small" /></IconButton>
+                  </>
+                )}
+              </Box>
+            </TableCell>
+          )}
+        </TableRow>
+      )
+    }
+
+    const renderNotDueRow = (fe: FixedExpense) => {
+      const category = fe.categoryId ? categoryMap.get(fe.categoryId) : undefined
+      const method = fe.paymentMethodId ? methodMap.get(fe.paymentMethodId) : undefined
+      const person = method?.budgetPersonId && method.budgetPersonId !== 0n
+        ? personMap.get(method.budgetPersonId.toString())
+        : undefined
+      return (
+        <TableRow key={fe.id} hover>
+          <TableCell>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="body2" fontWeight={500} color="text.disabled">{fe.name}</Typography>
+                {(() => {
+                  const progress = paymentProgress(fe)
+                  return progress ? (
+                    <Typography variant="caption" color="text.disabled">({progress})</Typography>
+                  ) : null
+                })()}
+                <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
+                  <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
+                </IconButton>
+              </Box>
+              <Typography variant="caption" color="warning.main">
+                {t('notDueTooltip', { date: nextDueDateLabel(fe) })}
+              </Typography>
+              {(method || person) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {method && (
+                    <Typography variant="caption" color="text.disabled">{method.alias || method.name}</Typography>
+                  )}
+                  {method && person && (
+                    <Typography variant="caption" color="text.disabled">·</Typography>
+                  )}
+                  {person && (
+                    <Typography variant="caption" color="text.disabled">{person.userName}</Typography>
+                  )}
+                </Box>
+              )}
+              {category && (
+                <Typography variant="caption" color="text.disabled">{category.name}</Typography>
+              )}
+            </Box>
+          </TableCell>
+          <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 1.5 }}>
+            <Typography variant="body2" color="text.disabled">{formatMoney(fixedExpensePlannedAmount(fe))}</Typography>
+          </TableCell>
+          {isEditable && (
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 0.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}><EditIcon fontSize="small" /></IconButton>
+                <IconButton size="small" onClick={() => handleDeleteFixedExpense(fe)}><DeleteIcon fontSize="small" /></IconButton>
+              </Box>
+            </TableCell>
+          )}
+        </TableRow>
+      )
+    }
+
     return (
       <>
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -406,159 +602,22 @@ function TransactionTable({
                     {t('empty', { label })}
                   </TableCell>
                 </TableRow>
-              ) : (
+              ) : isFixed ? (
                 <>
-                  {sorted.map((tx) => {
-                    const category = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
-                    const method = tx.paymentMethodId ? methodMap.get(tx.paymentMethodId) : undefined
-                    const person = method?.budgetPersonId && method.budgetPersonId !== 0n
-                      ? personMap.get(method.budgetPersonId.toString())
-                      : undefined
-                    const dateStr = formatDate(tx.date)
-                    return (
-                      <TableRow key={tx.id} hover>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Typography variant="body2" fontWeight={500}>{tx.name}</Typography>
-                              {isFixed && tx.fixedExpenseId && (() => {
-                                const fe = fixedExpenseMap?.get(tx.fixedExpenseId)
-                                const progress = fe ? paymentProgress(fe) : null
-                                return progress ? (
-                                  <Typography variant="caption" color="text.secondary">({progress})</Typography>
-                                ) : null
-                              })()}
-                            </Box>
-                            {dateStr && (
-                              <Typography variant="caption" color="text.secondary">{dateStr}</Typography>
-                            )}
-                            {(method || person) && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {method && (
-                                  <Typography variant="caption" sx={{ color: method.color || 'text.secondary' }}>{method.alias || method.name}</Typography>
-                                )}
-                                {method && person && (
-                                  <Typography variant="caption" color="text.secondary">·</Typography>
-                                )}
-                                {person && (
-                                  <Typography variant="caption" sx={{ color: person.color || 'text.secondary' }}>{person.userName}</Typography>
-                                )}
-                              </Box>
-                            )}
-                            {category && (
-                              <Typography variant="caption" sx={{ color: category.color || 'text.secondary' }}>{category.name}</Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 1.5 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                            {isFixed ? (
-                              <Typography variant="body2">{formatMoney(txPlannedAmount(tx))}</Typography>
-                            ) : (() => {
-                              const { text, color } = formatVariableAmount(txAmount(tx))
-                              return <Typography variant="body2" color={color ?? 'inherit'}>{text}</Typography>
-                            })()}
-                            {isFixed && tx.isPaid && (
-                              <Typography variant="caption" color="success.main">
-                                {t('paid')}: {formatMoney(txAmount(tx))}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        {isEditable && (
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 0.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              {canMarkPaid(tx) && (
-                                <Tooltip title={t('markAsPaid.title')}>
-                                  <IconButton size="small" onClick={() => setMarkPaidTarget(tx)} color="default">
-                                    <CheckCircleOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              {isFixed && tx.isPaid && (
-                                <Tooltip title={t('markAsPaid.alreadyPaid')}>
-                                  <IconButton size="small" onClick={() => handleUnmark(tx)} disabled={unmarkPending} color="success">
-                                    <CheckCircleIcon fontSize="small" color="success" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              {!isFixed && isEditable && (
-                                <Tooltip title={t('markForReview')}>
-                                  <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
-                                    <FlagIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              {isRowEditable(tx) && (
-                                <>
-                                  <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
-                                  <IconButton size="small" onClick={() => handleDelete(tx)}><DeleteIcon fontSize="small" /></IconButton>
-                                </>
-                              )}
-                            </Box>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    )
-                  })}
-                  {filteredNotDue.map((fe) => {
-                    const category = fe.categoryId ? categoryMap.get(fe.categoryId) : undefined
-                    const method = fe.paymentMethodId ? methodMap.get(fe.paymentMethodId) : undefined
-                    const person = method?.budgetPersonId && method.budgetPersonId !== 0n
-                      ? personMap.get(method.budgetPersonId.toString())
-                      : undefined
-                    return (
-                      <TableRow key={fe.id} hover>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Typography variant="body2" fontWeight={500} color="text.disabled">{fe.name}</Typography>
-                              {(() => {
-                                const progress = paymentProgress(fe)
-                                return progress ? (
-                                  <Typography variant="caption" color="text.disabled">({progress})</Typography>
-                                ) : null
-                              })()}
-                              <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
-                                <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
-                              </IconButton>
-                            </Box>
-                            <Typography variant="caption" color="warning.main">
-                              {t('notDueTooltip', { date: nextDueDateLabel(fe) })}
-                            </Typography>
-                            {(method || person) && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {method && (
-                                  <Typography variant="caption" color="text.disabled">{method.alias || method.name}</Typography>
-                                )}
-                                {method && person && (
-                                  <Typography variant="caption" color="text.disabled">·</Typography>
-                                )}
-                                {person && (
-                                  <Typography variant="caption" color="text.disabled">{person.userName}</Typography>
-                                )}
-                              </Box>
-                            )}
-                            {category && (
-                              <Typography variant="caption" color="text.disabled">{category.name}</Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 1.5 }}>
-                          <Typography variant="body2" color="text.disabled">{formatMoney(fixedExpensePlannedAmount(fe))}</Typography>
-                        </TableCell>
-                        {isEditable && (
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap', verticalAlign: 'top', pt: 0.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}><EditIcon fontSize="small" /></IconButton>
-                              <IconButton size="small" onClick={() => handleDeleteFixedExpense(fe)}><DeleteIcon fontSize="small" /></IconButton>
-                            </Box>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    )
-                  })}
+                  {sorted.map((tx) => renderRow(tx))}
+                  {filteredNotDue.map((fe) => renderNotDueRow(fe))}
                 </>
+              ) : (
+                dayGroups.map((group) => (
+                  <Fragment key={group.day}>
+                    <TableRow>
+                      <TableCell colSpan={colSpan} sx={{ bgcolor: 'action.hover', py: 0.5 }}>
+                        <Typography variant="caption" fontWeight={600} color="text.secondary">{group.label}</Typography>
+                      </TableCell>
+                    </TableRow>
+                    {group.transactions.map((tx) => renderRow(tx))}
+                  </Fragment>
+                ))
               )}
             </TableBody>
           </Table>
@@ -588,10 +647,170 @@ function TransactionTable({
 
   // Desktop layout
   // Fixed: Item | Day | Category | Payment Method | Owner | Planned | Actual | (actions)
-  // Variable: Item | Day | Category | Payment Method | Owner | Amount | (actions)
+  // Variable: Item | Category | Payment Method | Owner | Amount | (actions) — grouped under day headers
   const colSpan = isFixed
     ? (isEditable ? 8 : 7)
-    : (isEditable ? 7 : 6)
+    : (isEditable ? 6 : 5)
+
+  const renderRow = (tx: Transaction) => {
+    const category = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
+    const method = tx.paymentMethodId ? methodMap.get(tx.paymentMethodId) : undefined
+    const person = method?.budgetPersonId && method.budgetPersonId !== 0n
+      ? personMap.get(method.budgetPersonId.toString())
+      : undefined
+    return (
+      <TableRow key={tx.id} hover>
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" fontWeight={500}>{tx.name}</Typography>
+            {isFixed && tx.fixedExpenseId && (() => {
+              const fe = fixedExpenseMap?.get(tx.fixedExpenseId)
+              const progress = fe ? paymentProgress(fe) : null
+              return progress ? (
+                <Typography variant="caption" color="text.secondary">({progress})</Typography>
+              ) : null
+            })()}
+          </Box>
+        </TableCell>
+        {isFixed && (
+          <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
+            {formatDate(tx.date)}
+          </TableCell>
+        )}
+        <TableCell>
+          {category && (
+            <Typography variant="body2" sx={{ color: category.color || 'text.secondary' }}>
+              {category.name}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {method && (
+            <Typography variant="body2" sx={{ color: method.color || 'inherit' }}>
+              {method.alias || method.name}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {person && (
+            <Typography variant="body2" sx={{ color: person.color || 'text.secondary' }}>
+              {person.userName}
+            </Typography>
+          )}
+        </TableCell>
+        {isFixed ? (
+          <>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              {formatMoney(txPlannedAmount(tx))}
+            </TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: tx.isPaid ? 'success.main' : 'text.disabled' }}>
+              {tx.isPaid ? formatMoney(txAmount(tx)) : '—'}
+            </TableCell>
+          </>
+        ) : (
+          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+            {(() => {
+              const { text, color } = formatVariableAmount(txAmount(tx))
+              return <Typography variant="body2" component="span" color={color ?? 'inherit'}>{text}</Typography>
+            })()}
+          </TableCell>
+        )}
+        {isEditable && (
+          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {canMarkPaid(tx) && (
+                <Tooltip title={t('markAsPaid.title')}>
+                  <IconButton size="small" onClick={() => setMarkPaidTarget(tx)}>
+                    <CheckCircleOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {isFixed && tx.isPaid && (
+                <Tooltip title={t('markAsPaid.alreadyPaid')}>
+                  <IconButton size="small" onClick={() => handleUnmark(tx)} disabled={unmarkPending} color="success">
+                    <CheckCircleIcon fontSize="small" color="success" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {!isFixed && isEditable && (
+                <Tooltip title={t('markForReview')}>
+                  <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
+                    <FlagIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {isRowEditable(tx) && (
+                <>
+                  <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={() => handleDelete(tx)}><DeleteIcon fontSize="small" /></IconButton>
+                </>
+              )}
+            </Box>
+          </TableCell>
+        )}
+      </TableRow>
+    )
+  }
+
+  const renderNotDueRow = (fe: FixedExpense) => {
+    const category = fe.categoryId ? categoryMap.get(fe.categoryId) : undefined
+    const method = fe.paymentMethodId ? methodMap.get(fe.paymentMethodId) : undefined
+    const person = method?.budgetPersonId && method.budgetPersonId !== 0n
+      ? personMap.get(method.budgetPersonId.toString())
+      : undefined
+    return (
+      <TableRow key={fe.id} hover>
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" fontWeight={500} color="text.disabled">{fe.name}</Typography>
+            {(() => {
+              const progress = paymentProgress(fe)
+              return progress ? (
+                <Typography variant="caption" color="text.disabled">({progress})</Typography>
+              ) : null
+            })()}
+            <Tooltip title={t('notDueTooltip', { date: nextDueDateLabel(fe) })}>
+              <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
+                <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </TableCell>
+        <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
+          {nextDueDateLabel(fe)}
+        </TableCell>
+        <TableCell>
+          {category && (
+            <Typography variant="body2" color="text.disabled">{category.name}</Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {method && (
+            <Typography variant="body2" color="text.disabled">{method.alias || method.name}</Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {person && (
+            <Typography variant="body2" color="text.disabled">{person.userName}</Typography>
+          )}
+        </TableCell>
+        <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
+          {formatMoney(fixedExpensePlannedAmount(fe))}
+        </TableCell>
+        <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
+          —
+        </TableCell>
+        {isEditable && (
+          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}><EditIcon fontSize="small" /></IconButton>
+              <IconButton size="small" onClick={() => handleDeleteFixedExpense(fe)}><DeleteIcon fontSize="small" /></IconButton>
+            </Box>
+          </TableCell>
+        )}
+      </TableRow>
+    )
+  }
 
   return (
     <>
@@ -602,9 +821,11 @@ function TransactionTable({
               <SortHeader col="name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>
                 {t('columns.item')}
               </SortHeader>
-              <SortHeader col="day" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>
-                {t('columns.day')}
-              </SortHeader>
+              {isFixed && (
+                <SortHeader col="day" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>
+                  {t('columns.day')}
+                </SortHeader>
+              )}
               <SortHeader col="category" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>
                 {t('columns.category')}
               </SortHeader>
@@ -636,165 +857,22 @@ function TransactionTable({
                   {t('empty', { label })}
                 </TableCell>
               </TableRow>
-            ) : (
+            ) : isFixed ? (
               <>
-                {sorted.map((tx) => {
-                  const category = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
-                  const method = tx.paymentMethodId ? methodMap.get(tx.paymentMethodId) : undefined
-                  const person = method?.budgetPersonId && method.budgetPersonId !== 0n
-                    ? personMap.get(method.budgetPersonId.toString())
-                    : undefined
-                  return (
-                    <TableRow key={tx.id} hover>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2" fontWeight={500}>{tx.name}</Typography>
-                          {isFixed && tx.fixedExpenseId && (() => {
-                            const fe = fixedExpenseMap?.get(tx.fixedExpenseId)
-                            const progress = fe ? paymentProgress(fe) : null
-                            return progress ? (
-                              <Typography variant="caption" color="text.secondary">({progress})</Typography>
-                            ) : null
-                          })()}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
-                        {formatDate(tx.date)}
-                      </TableCell>
-                      <TableCell>
-                        {category && (
-                          <Typography variant="body2" sx={{ color: category.color || 'text.secondary' }}>
-                            {category.name}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {method && (
-                          <Typography variant="body2" sx={{ color: method.color || 'inherit' }}>
-                            {method.alias || method.name}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {person && (
-                          <Typography variant="body2" sx={{ color: person.color || 'text.secondary' }}>
-                            {person.userName}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      {isFixed ? (
-                        <>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            {formatMoney(txPlannedAmount(tx))}
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: tx.isPaid ? 'success.main' : 'text.disabled' }}>
-                            {tx.isPaid ? formatMoney(txAmount(tx)) : '—'}
-                          </TableCell>
-                        </>
-                      ) : (
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                          {(() => {
-                            const { text, color } = formatVariableAmount(txAmount(tx))
-                            return <Typography variant="body2" component="span" color={color ?? 'inherit'}>{text}</Typography>
-                          })()}
-                        </TableCell>
-                      )}
-                      {isEditable && (
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            {canMarkPaid(tx) && (
-                              <Tooltip title={t('markAsPaid.title')}>
-                                <IconButton size="small" onClick={() => setMarkPaidTarget(tx)}>
-                                  <CheckCircleOutlineIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {isFixed && tx.isPaid && (
-                              <Tooltip title={t('markAsPaid.alreadyPaid')}>
-                                <IconButton size="small" onClick={() => handleUnmark(tx)} disabled={unmarkPending} color="success">
-                                  <CheckCircleIcon fontSize="small" color="success" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {!isFixed && isEditable && (
-                              <Tooltip title={t('markForReview')}>
-                                <IconButton size="small" onClick={() => setMarkReviewTarget(tx)}>
-                                  <FlagIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {isRowEditable(tx) && (
-                              <>
-                                <IconButton size="small" onClick={() => onEdit(tx)}><EditIcon fontSize="small" /></IconButton>
-                                <IconButton size="small" onClick={() => handleDelete(tx)}><DeleteIcon fontSize="small" /></IconButton>
-                              </>
-                            )}
-                          </Box>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  )
-                })}
-                {filteredNotDue.map((fe) => {
-                  const category = fe.categoryId ? categoryMap.get(fe.categoryId) : undefined
-                  const method = fe.paymentMethodId ? methodMap.get(fe.paymentMethodId) : undefined
-                  const person = method?.budgetPersonId && method.budgetPersonId !== 0n
-                    ? personMap.get(method.budgetPersonId.toString())
-                    : undefined
-                  return (
-                    <TableRow key={fe.id} hover>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2" fontWeight={500} color="text.disabled">{fe.name}</Typography>
-                          {(() => {
-                            const progress = paymentProgress(fe)
-                            return progress ? (
-                              <Typography variant="caption" color="text.disabled">({progress})</Typography>
-                            ) : null
-                          })()}
-                          <Tooltip title={t('notDueTooltip', { date: nextDueDateLabel(fe) })}>
-                            <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}>
-                              <ErrorOutlineIcon sx={{ fontSize: 16 }} color="warning" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
-                        {nextDueDateLabel(fe)}
-                      </TableCell>
-                      <TableCell>
-                        {category && (
-                          <Typography variant="body2" color="text.disabled">{category.name}</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {method && (
-                          <Typography variant="body2" color="text.disabled">{method.alias || method.name}</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {person && (
-                          <Typography variant="body2" color="text.disabled">{person.userName}</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
-                        {formatMoney(fixedExpensePlannedAmount(fe))}
-                      </TableCell>
-                      <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.disabled' }}>
-                        —
-                      </TableCell>
-                      {isEditable && (
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <IconButton size="small" onClick={() => onEditFixedExpense?.(fe)}><EditIcon fontSize="small" /></IconButton>
-                            <IconButton size="small" onClick={() => handleDeleteFixedExpense(fe)}><DeleteIcon fontSize="small" /></IconButton>
-                          </Box>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  )
-                })}
+                {sorted.map((tx) => renderRow(tx))}
+                {filteredNotDue.map((fe) => renderNotDueRow(fe))}
               </>
+            ) : (
+              dayGroups.map((group) => (
+                <Fragment key={group.day}>
+                  <TableRow>
+                    <TableCell colSpan={colSpan} sx={{ bgcolor: 'action.hover', py: 0.5 }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary">{group.label}</Typography>
+                    </TableCell>
+                  </TableRow>
+                  {group.transactions.map((tx) => renderRow(tx))}
+                </Fragment>
+              ))
             )}
           </TableBody>
         </Table>
