@@ -17,6 +17,7 @@ import DialogActions from '@mui/material/DialogActions'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import FormHelperText from '@mui/material/FormHelperText'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -157,9 +158,9 @@ export function EditSavingsModal({ budgetProfileId, activePeriodStart, source, o
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="inherit">{t('cancel')}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!isValid || isPending}>
-          {isPending ? t('saving') : t('save')}
-        </Button>
+        <LoadingButton variant="contained" onClick={handleSave} disabled={!isValid} loading={isPending}>
+          {t('save')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

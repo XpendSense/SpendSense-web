@@ -14,6 +14,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Typography from '@mui/material/Typography'
 
 interface Props {
@@ -106,9 +107,9 @@ export function MarkAsPaidDialog({ transaction: tx, budgetPeriodId, isSavings = 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('cancel')}</Button>
-        <Button variant="contained" onClick={handleConfirm} disabled={!isValid || isPending}>
+        <LoadingButton variant="contained" onClick={handleConfirm} disabled={!isValid} loading={isPending}>
           {t('confirm')}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

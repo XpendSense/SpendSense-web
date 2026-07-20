@@ -15,6 +15,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
@@ -141,9 +142,9 @@ export function BudgetSetupFlow({ open, onClose, onComplete }: Props) {
       {step === 0 && (
         <DialogActions>
           <Button onClick={handleClose} color="inherit">Cancel</Button>
-          <Button variant="contained" onClick={handleCreateBudget} disabled={!budgetName.trim() || isPending}>
-            {isPending ? 'Creating…' : 'Create'}
-          </Button>
+          <LoadingButton variant="contained" onClick={handleCreateBudget} disabled={!budgetName.trim()} loading={isPending}>
+            Create
+          </LoadingButton>
         </DialogActions>
       )}
 

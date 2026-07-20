@@ -14,7 +14,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import InputLabel from '@mui/material/InputLabel'
@@ -297,14 +297,14 @@ export function ProfileSettings() {
 
         {saved && <Alert severity="success">{t('saved')}</Alert>}
 
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={handleSave}
-          disabled={isPending}
+          loading={isPending}
           sx={{ alignSelf: 'flex-start' }}
         >
-          {isPending ? t('saving') : t('save')}
-        </Button>
+          {t('save')}
+        </LoadingButton>
       </Stack>
     </Box>
   )

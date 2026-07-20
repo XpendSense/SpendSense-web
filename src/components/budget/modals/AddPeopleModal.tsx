@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
@@ -117,9 +118,9 @@ export function AddPeopleModal({ budgetProfileId, onSkip, onDone }: Props) {
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
         <Button onClick={onSkip} color="inherit">Skip</Button>
-        <Button variant="contained" onClick={handleSave} disabled={isPending}>
-          {pending.length === 0 ? 'Continue' : isPending ? 'Saving…' : 'Save & Continue'}
-        </Button>
+        <LoadingButton variant="contained" onClick={handleSave} loading={isPending}>
+          {pending.length === 0 ? 'Continue' : 'Save & Continue'}
+        </LoadingButton>
       </Stack>
     </Stack>
   )

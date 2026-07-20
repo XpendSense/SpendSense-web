@@ -13,6 +13,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -199,13 +200,14 @@ export function MarkForReviewDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isPending}>{t('cancel')}</Button>
-        <Button
+        <LoadingButton
           onClick={handleConfirm}
           variant="contained"
-          disabled={!selectedId || isPending}
+          disabled={!selectedId}
+          loading={isPending}
         >
           {t('confirm')}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

@@ -11,6 +11,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 
 interface Props {
@@ -64,13 +65,14 @@ export function EditPaymentMethodDialog({ method, isSaving, fullScreen, onCancel
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">{t('editDialog.cancel')}</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={() => onConfirm(name, alias, color)}
-          disabled={!name.trim() || isSaving}
+          disabled={!name.trim()}
+          loading={isSaving}
         >
-          {isSaving ? t('editDialog.saving') : t('editDialog.save')}
-        </Button>
+          {t('editDialog.save')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

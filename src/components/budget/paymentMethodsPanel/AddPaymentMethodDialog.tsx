@@ -13,6 +13,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
@@ -100,9 +101,9 @@ export function AddPaymentMethodDialog({ open, people, isCreating, fullScreen, o
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel} color="inherit">{t('addDialog.cancel')}</Button>
-        <Button variant="contained" onClick={handleConfirm} disabled={!name.trim() || personId === 0n || isCreating}>
-          {isCreating ? t('addDialog.adding') : t('addDialog.add')}
-        </Button>
+        <LoadingButton variant="contained" onClick={handleConfirm} disabled={!name.trim() || personId === 0n} loading={isCreating}>
+          {t('addDialog.add')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

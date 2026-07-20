@@ -10,6 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 
@@ -61,14 +62,15 @@ export function DeactivateMethodDialog({ method, methods, personMap, isDeleting,
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">{t('deactivateDialog.cancel')}</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           color="error"
           onClick={() => onConfirm(replacementId)}
-          disabled={!replacementId || isDeleting}
+          disabled={!replacementId}
+          loading={isDeleting}
         >
-          {isDeleting ? t('deactivateDialog.deactivating') : t('deactivateDialog.deactivate')}
-        </Button>
+          {t('deactivateDialog.deactivate')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

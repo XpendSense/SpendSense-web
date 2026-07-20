@@ -15,6 +15,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Stack from '@mui/material/Stack'
 import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
@@ -227,14 +228,15 @@ export function InvitePanel({ budgetProfileId, canManageUsers = true }: Props) {
                   </Select>
                 </FormControl>
               )}
-              <Button
+              <LoadingButton
                 variant="contained"
                 onClick={handleSend}
-                disabled={!email.trim() || isSending}
+                disabled={!email.trim()}
+                loading={isSending}
                 fullWidth
               >
-                {isSending ? tInvites('send.submitting') : tInvites('send.submit')}
-              </Button>
+                {tInvites('send.submit')}
+              </LoadingButton>
             </Stack>
           </Box>
 

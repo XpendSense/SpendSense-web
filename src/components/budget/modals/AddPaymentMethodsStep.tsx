@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Typography from '@mui/material/Typography'
 import MenuItem from '@mui/material/MenuItem'
 import List from '@mui/material/List'
@@ -152,9 +153,9 @@ export function AddPaymentMethodsStep({ budgetProfileId, onSkip, onDone }: Props
       <ColorPicker value={color} onChange={setColor} />
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button variant="outlined" onClick={handleAdd} disabled={!name.trim() || budgetPersonId === 0n || isPending}>
-          {isPending ? 'Adding…' : 'Add'}
-        </Button>
+        <LoadingButton variant="outlined" onClick={handleAdd} disabled={!name.trim() || budgetPersonId === 0n} loading={isPending}>
+          Add
+        </LoadingButton>
         <Button variant="contained" onClick={onDone}>
           {savedMethods.length === 0 ? 'Skip' : 'Continue'}
         </Button>

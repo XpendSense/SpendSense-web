@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CardActions from '@mui/material/CardActions'
-import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
@@ -120,25 +120,27 @@ export function TransactionReviewPanel({ budgetProfileId, budgetPeriodId, isEdit
             </CardContent>
             {isEditable && (
               <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Button
+                <LoadingButton
                   size="small"
                   startIcon={<BlockIcon />}
                   onClick={() => handleDismiss(review.id)}
                   disabled={isPending}
+                  loading={dismissMutation.isPending}
                   color="inherit"
                 >
                   {t('dismiss')}
-                </Button>
-                <Button
+                </LoadingButton>
+                <LoadingButton
                   size="small"
                   startIcon={<CheckCircleOutlineIcon />}
                   onClick={() => handleConfirm(review.id)}
                   disabled={isPending}
+                  loading={confirmMutation.isPending}
                   color="primary"
                   variant="contained"
                 >
                   {t('confirm')}
-                </Button>
+                </LoadingButton>
               </CardActions>
             )}
           </Card>

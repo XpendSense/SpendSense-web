@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 
 interface Props {
   person: BudgetPerson | null
@@ -34,13 +35,13 @@ export function EditColorDialog({ person, isSaving, onCancel, onConfirm }: Props
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">Cancel</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={() => onConfirm(color)}
-          disabled={isSaving}
+          loading={isSaving}
         >
-          {isSaving ? 'Saving…' : 'Save'}
-        </Button>
+          Save
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
@@ -349,9 +350,9 @@ export function EditFixedExpenseModal({ budgetProfileId, fixedExpense, onClose, 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="inherit">{t('cancel')}</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!canSave || isPending}>
-          {isPending ? t('saving') : t('save')}
-        </Button>
+        <LoadingButton variant="contained" onClick={handleSave} disabled={!canSave} loading={isPending}>
+          {t('save')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

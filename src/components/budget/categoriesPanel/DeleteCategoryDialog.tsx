@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import FormControl from '@mui/material/FormControl'
@@ -55,14 +56,15 @@ export function DeleteCategoryDialog({ category, replacementOptions, isDeleting,
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">Cancel</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           color="error"
           onClick={() => onConfirm(replacementId)}
-          disabled={replacementId === 0 || isDeleting}
+          disabled={replacementId === 0}
+          loading={isDeleting}
         >
-          {isDeleting ? 'Deleting…' : 'Delete'}
-        </Button>
+          Delete
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

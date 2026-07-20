@@ -39,6 +39,7 @@ import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import IconButton from '@mui/material/IconButton'
+import { LoadingIconButton } from '@/components/ui/LoadingIconButton'
 import ToggleButton from '@mui/material/ToggleButton'
 import CircularProgress from '@mui/material/CircularProgress'
 import Tooltip from '@mui/material/Tooltip'
@@ -559,9 +560,9 @@ export function TransactionTable({
               )}
               {isFixed && tx.isPaid && (
                 <Tooltip title={t('markAsPaid.alreadyPaid')}>
-                  <IconButton size="small" onClick={() => handleUnmark(tx)} disabled={unmarkPending} color="success">
+                  <LoadingIconButton size="small" onClick={() => handleUnmark(tx)} loading={unmarkPending} color="success">
                     <CheckCircleIcon fontSize="small" color="success" />
-                  </IconButton>
+                  </LoadingIconButton>
                 </Tooltip>
               )}
               {!isFixed && isEditable && (
@@ -573,14 +574,15 @@ export function TransactionTable({
               )}
               <Tooltip title={isIncomeRow(tx) ? t('exclude.incomeAlwaysExcluded') : (tx.isExcluded ? t('exclude.unexclude') : t('exclude.exclude'))}>
                 <span>
-                  <IconButton
+                  <LoadingIconButton
                     size="small"
                     onClick={() => handleToggleExcluded(tx)}
-                    disabled={isIncomeRow(tx) || setExcludedPending}
+                    disabled={isIncomeRow(tx)}
+                    loading={setExcludedPending}
                     color={tx.isExcluded || isIncomeRow(tx) ? 'warning' : 'default'}
                   >
                     {tx.isExcluded || isIncomeRow(tx) ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                  </IconButton>
+                  </LoadingIconButton>
                 </span>
               </Tooltip>
               {isRowEditable(tx) && (

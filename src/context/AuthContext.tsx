@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-qu
 import { createTransport } from '@/lib/api/client'
 import { getUserIdFromToken, isTokenExpired } from '@/lib/auth/token'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
+import { GlobalProgressBar } from '@/components/ui/GlobalProgressBar'
 
 interface AuthContextValue {
   token: string
@@ -64,6 +65,7 @@ export function AuthProvider({ token, children }: { token: string; children: Rea
     <AuthContext.Provider value={{ token, userId }}>
       <TransportProvider transport={transport}>
         <QueryClientProvider client={queryClient}>
+          <GlobalProgressBar />
           {children}
         </QueryClientProvider>
       </TransportProvider>

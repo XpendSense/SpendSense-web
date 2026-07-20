@@ -7,6 +7,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Stack from '@mui/material/Stack'
 import Alert from '@mui/material/Alert'
 import Typography from '@mui/material/Typography'
@@ -107,14 +108,15 @@ export function RemovePersonDialog({ person, people, paymentMethods, incomeSourc
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">Cancel</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           color="error"
           onClick={() => onConfirm(needsReplacement ? replacementPersonId : 0n, needsReplacement ? replacementPmId : '')}
-          disabled={!canConfirm || isRemoving}
+          disabled={!canConfirm}
+          loading={isRemoving}
         >
-          {isRemoving ? 'Removing…' : 'Remove'}
-        </Button>
+          Remove
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

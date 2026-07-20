@@ -21,6 +21,7 @@ import ListItemText from '@mui/material/ListItemText'
 import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Divider from '@mui/material/Divider'
 import CircularProgress from '@mui/material/CircularProgress'
 import Chip from '@mui/material/Chip'
@@ -232,13 +233,14 @@ export function CategoriesPanel({ canEdit = true }: { canEdit?: boolean }) {
               </Typography>
               <ColorPicker value={newColor} onChange={setNewColor} />
             </Box>
-            <Button
+            <LoadingButton
               variant="contained"
               onClick={handleCreate}
-              disabled={!newName.trim() || isCreating}
+              disabled={!newName.trim()}
+              loading={isCreating}
             >
-              {isCreating ? 'Creating…' : 'Create'}
-            </Button>
+              Create
+            </LoadingButton>
           </Stack>
         </Box>
       )}

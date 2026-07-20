@@ -15,6 +15,7 @@ import DialogActions from '@mui/material/DialogActions'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
 import Select from '@mui/material/Select'
@@ -124,13 +125,14 @@ export function AddIncomeDialog({ budgetProfileId, showBeforeTax, onClose, onDon
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="inherit">Cancel</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={handleSave}
-          disabled={!name.trim() || !amount || !!amountError || isPending}
+          disabled={!name.trim() || !amount || !!amountError}
+          loading={isPending}
         >
-          {isPending ? 'Saving…' : 'Save'}
-        </Button>
+          Save
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

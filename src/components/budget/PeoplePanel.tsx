@@ -19,6 +19,7 @@ import ListItemText from '@mui/material/ListItemText'
 import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Stack from '@mui/material/Stack'
 import Divider from '@mui/material/Divider'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -266,14 +267,15 @@ export function PeoplePanel({ budgetProfileId, canManageUsers = true }: Props) {
                 ))}
               </List>
             )}
-            <Button
+            <LoadingButton
               variant="contained"
               onClick={handleAdd}
-              disabled={pendingNames.length === 0 || isAdding}
+              disabled={pendingNames.length === 0}
+              loading={isAdding}
               fullWidth
             >
-              {isAdding ? 'Saving…' : pendingNames.length > 0 ? `Save (${pendingNames.length})` : 'Save'}
-            </Button>
+              {pendingNames.length > 0 ? `Save (${pendingNames.length})` : 'Save'}
+            </LoadingButton>
           </Box>
         </>
       )}

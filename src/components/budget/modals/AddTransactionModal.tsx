@@ -15,6 +15,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Box from '@mui/material/Box'
@@ -416,9 +417,9 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
         {form}
         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
           {onSkip && <Button onClick={onSkip} color="inherit">Skip</Button>}
-          <Button variant="contained" onClick={handleSave} disabled={!canSave || isPending}>
-            {isPending ? 'Saving…' : 'Save & Finish'}
-          </Button>
+          <LoadingButton variant="contained" onClick={handleSave} disabled={!canSave} loading={isPending}>
+            Save & Finish
+          </LoadingButton>
         </Stack>
       </>
     )
@@ -430,9 +431,9 @@ export function AddTransactionModal({ budgetPeriodId, budgetProfileId, open, emb
       <DialogContent sx={{ pt: 2 }}>{form}</DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!canSave || isPending}>
-          {isPending ? 'Saving…' : 'Add'}
-        </Button>
+        <LoadingButton variant="contained" onClick={handleSave} disabled={!canSave} loading={isPending}>
+          Add
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

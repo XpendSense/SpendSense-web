@@ -10,6 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 
 interface Props {
   category: Category | null
@@ -38,9 +39,9 @@ export function SystemColorDialog({ category, isSaving, onCancel, onConfirm }: P
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">Cancel</Button>
-        <Button variant="contained" onClick={() => onConfirm(color)} disabled={isSaving}>
-          {isSaving ? 'Saving…' : 'Save'}
-        </Button>
+        <LoadingButton variant="contained" onClick={() => onConfirm(color)} loading={isSaving}>
+          Save
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

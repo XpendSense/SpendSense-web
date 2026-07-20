@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
@@ -53,9 +54,9 @@ function DeleteConfirmDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="inherit" disabled={isDeleting}>{t('cancel')}</Button>
-        <Button onClick={onConfirm} color="error" variant="contained" disabled={isDeleting}>
-          {isDeleting ? t('deleting') : t('delete')}
-        </Button>
+        <LoadingButton onClick={onConfirm} color="error" variant="contained" loading={isDeleting}>
+          {t('delete')}
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

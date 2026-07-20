@@ -10,6 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import TextField from '@mui/material/TextField'
 
 interface Props {
@@ -50,13 +51,14 @@ export function EditCategoryDialog({ category, isSaving, onCancel, onConfirm }: 
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">Cancel</Button>
-        <Button
+        <LoadingButton
           variant="contained"
           onClick={() => onConfirm(name, color)}
-          disabled={!name.trim() || isSaving}
+          disabled={!name.trim()}
+          loading={isSaving}
         >
-          {isSaving ? 'Saving…' : 'Save'}
-        </Button>
+          Save
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   )

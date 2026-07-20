@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import { LoadingButton } from '@/components/ui/LoadingButton'
 import Typography from '@mui/material/Typography'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
@@ -153,9 +154,9 @@ export function AddIncomeModal({ budgetProfileId, showBeforeTax, onSkip, onDone 
       )}
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button variant="outlined" onClick={handleAdd} disabled={!name.trim() || !amount || !!amountError || isPending}>
-          {isPending ? 'Adding…' : 'Add'}
-        </Button>
+        <LoadingButton variant="outlined" onClick={handleAdd} disabled={!name.trim() || !amount || !!amountError} loading={isPending}>
+          Add
+        </LoadingButton>
         <Button variant="contained" onClick={handleDone} disabled={isPending}>
           {savedSources.length === 0 ? 'Skip' : 'Continue'}
         </Button>
