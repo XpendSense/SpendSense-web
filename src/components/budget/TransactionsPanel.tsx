@@ -12,7 +12,7 @@ import { useClient } from '@/hooks/useClient'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useViewPreference } from '@/hooks/useViewPreference'
 import { formatMoneyFromNumber } from '@/lib/format'
-import { txAmount, txPlannedAmount, fixedExpensePlannedAmount, isTransactionExcluded, resolveSwipeDirection } from './transactionsPanel/helpers'
+import { txAmount, txPlannedAmount, fixedExpensePlannedAmount, isTransactionExcluded, resolveSwipeDirection, buildPendingReviewMatchMap } from './transactionsPanel/helpers'
 import { TransactionTable } from './transactionsPanel/TransactionTable'
 import { AddTransactionModal } from './modals/AddTransactionModal'
 import { EditTransactionModal } from './modals/EditTransactionModal'
@@ -114,6 +114,11 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     queryKey: ['expense-allocations', budgetProfileId],
     queryFn: () => client.listExpenseAllocations({ budgetProfileId }),
   })
+  const { data: reviewsData } = useQuery({
+    queryKey: ['transaction-reviews', budgetProfileId],
+    queryFn: () => client.listTransactionReviews({ budgetProfileId }),
+    enabled: !!budgetProfileId,
+  })
 
   const categoryMap = new Map((categoriesData?.categories ?? []).map((c) => [c.id, c]))
   const methodMap = new Map((methodsData?.methods ?? []).map((m) => [m.id, m]))
@@ -196,6 +201,8 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     (fixedExpensesData?.expenses ?? []).map((fe) => [fe.id, fe])
   )
 
+  const pendingReviewMatchByTxId = buildPendingReviewMatchMap(reviewsData?.reviews ?? [])
+
   const sharedTableProps = {
     isEditable,
     savingsCategoryId,
@@ -206,6 +213,7 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     methodMap,
     personMap,
     fixedExpenseMap,
+    pendingReviewMatchByTxId,
     searchQuery,
     spentOnly,
     exceededOnly,

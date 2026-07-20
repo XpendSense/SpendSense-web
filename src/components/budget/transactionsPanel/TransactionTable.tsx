@@ -68,6 +68,7 @@ export interface TransactionTableProps {
   personMap: Map<string, BudgetPerson>
   notDueFixedExpenses?: FixedExpense[]
   fixedExpenseMap?: Map<string, FixedExpense>
+  pendingReviewMatchByTxId?: Map<string, string>
   searchQuery?: string
   spentOnly?: boolean
   exceededOnly?: boolean
@@ -84,7 +85,7 @@ export interface TransactionTableProps {
 
 export function TransactionTable({
   transactions, isLoading, isEditable, isFixed, savingsCategoryId, incomeCategoryId, budgetPeriodId, budgetProfileId, label,
-  categoryMap, methodMap, personMap, notDueFixedExpenses = [], fixedExpenseMap, searchQuery = '', spentOnly = false,
+  categoryMap, methodMap, personMap, notDueFixedExpenses = [], fixedExpenseMap, pendingReviewMatchByTxId, searchQuery = '', spentOnly = false,
   exceededOnly = false, excludedOnly = false, overBudgetTxIds, onToggleSpentOnly, onToggleExceededOnly, onToggleExcludedOnly,
   onDeleted, onEdit, onEditFixedExpense, onRefresh,
 }: TransactionTableProps) {
@@ -224,6 +225,13 @@ export function TransactionTable({
                     <Typography variant="caption" color="text.secondary">({progress})</Typography>
                   ) : null
                 })()}
+                {!isFixed && pendingReviewMatchByTxId?.has(tx.id) && (
+                  <Tooltip title={t('linkedToFixedTooltip', { name: pendingReviewMatchByTxId.get(tx.id) ?? '' })}>
+                    <Typography variant="caption" color="text.secondary" sx={{ cursor: 'default' }}>
+                      ({t('linkedToFixed')})
+                    </Typography>
+                  </Tooltip>
+                )}
               </Box>
               {isFixed && dateStr && (
                 <Typography variant="caption" color="text.secondary">{dateStr}</Typography>
@@ -487,6 +495,13 @@ export function TransactionTable({
                 <Typography variant="caption" color="text.secondary">({progress})</Typography>
               ) : null
             })()}
+            {!isFixed && pendingReviewMatchByTxId?.has(tx.id) && (
+              <Tooltip title={t('linkedToFixedTooltip', { name: pendingReviewMatchByTxId.get(tx.id) ?? '' })}>
+                <Typography variant="caption" color="text.secondary" sx={{ cursor: 'default' }}>
+                  ({t('linkedToFixed')})
+                </Typography>
+              </Tooltip>
+            )}
           </Box>
         </TableCell>
         {isFixed && (

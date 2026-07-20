@@ -278,7 +278,9 @@
       },
       "rowActions": "Más acciones",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "linkedToFixed": "fijo",
+      "linkedToFixedTooltip": "Pendiente de revisión — vinculado a \"{name}\""
     },
     "markForReview": {
       "title": "Marcar para revisión",

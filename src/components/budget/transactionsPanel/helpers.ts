@@ -1,4 +1,4 @@
-import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense } from '@/gen/wellspent/v1/budget_pb'
+import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense, TransactionReview } from '@/gen/wellspent/v1/budget_pb'
 import { formatMoneyFromNumber } from '@/lib/format'
 
 export type SortKey = 'name' | 'day' | 'amount' | 'category' | 'paymentMethod' | 'owner'
@@ -26,6 +26,18 @@ export function formatDate(ts: { seconds: bigint } | undefined): string {
 
 export function txAmount(t: Transaction): number {
   return Number(t.amount?.units ?? 0n) + (t.amount?.nanos ?? 0) / 1e9
+}
+
+// Maps a variable transaction's ID to the name of the fixed-type transaction
+// it's pending review against. Only pending reviews are included — a
+// confirmed review's transaction is already excluded from ListTransactions
+// server-side, and a dismissed review is no longer an active link.
+export function buildPendingReviewMatchMap(reviews: TransactionReview[]): Map<string, string> {
+  return new Map(
+    reviews
+      .filter((r) => r.status === 'pending')
+      .map((r) => [r.transactionId, r.matchedTransactionName]),
+  )
 }
 
 export type SwipeDirection = 'left' | 'right' | null

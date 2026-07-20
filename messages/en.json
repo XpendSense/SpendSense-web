@@ -278,7 +278,9 @@
       },
       "rowActions": "More actions",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "linkedToFixed": "fixed",
+      "linkedToFixedTooltip": "Pending review — matched to \"{name}\""
     },
     "markForReview": {
       "title": "Flag for Review",

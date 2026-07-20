@@ -7,8 +7,9 @@ import {
   groupTransactionsByDay,
   isTransactionExcluded,
   resolveSwipeDirection,
+  buildPendingReviewMatchMap,
 } from '../helpers'
-import type { Transaction, Category, PaymentMethod, BudgetPerson } from '@/gen/wellspent/v1/budget_pb'
+import type { Transaction, Category, PaymentMethod, BudgetPerson, TransactionReview } from '@/gen/wellspent/v1/budget_pb'
 
 function money(units: bigint): { units: bigint; nanos: number } {
   return { units, nanos: 0 }
@@ -150,6 +151,41 @@ describe('compareTransactions', () => {
     const a = makeTransaction({ id: 'a', name: 'Same' })
     const b = makeTransaction({ id: 'b', name: 'Same' })
     expect(compareTransactions(a, b, 'name', 'asc', categoryMap, methodMap, personMap)).toBeLessThan(0)
+  })
+})
+
+function makeReview(overrides: Partial<TransactionReview> = {}): TransactionReview {
+  return {
+    id: 'review-1',
+    budgetPeriodId: 'period-1',
+    transactionId: 'tx-1',
+    matchScore: 90,
+    status: 'pending',
+    transactionName: 'Netflix',
+    matchedTransactionId: 'tx-fixed-1',
+    matchedTransactionName: 'Netflix Subscription',
+    ...overrides,
+  } as TransactionReview
+}
+
+describe('buildPendingReviewMatchMap', () => {
+  it('maps a pending review by transaction id to its matched transaction name', () => {
+    const map = buildPendingReviewMatchMap([makeReview()])
+    expect(map.get('tx-1')).toBe('Netflix Subscription')
+  })
+
+  it('excludes confirmed reviews', () => {
+    const map = buildPendingReviewMatchMap([makeReview({ status: 'confirmed' })])
+    expect(map.has('tx-1')).toBe(false)
+  })
+
+  it('excludes dismissed reviews', () => {
+    const map = buildPendingReviewMatchMap([makeReview({ status: 'dismissed' })])
+    expect(map.has('tx-1')).toBe(false)
+  })
+
+  it('returns an empty map for no reviews', () => {
+    expect(buildPendingReviewMatchMap([]).size).toBe(0)
   })
 })
 
