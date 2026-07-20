@@ -12,7 +12,7 @@ import { useCurrency } from '@/hooks/useCurrency'
 import { useSnackbar } from '@/components/ui/ErrorSnackbar'
 import { logger } from '@/lib/logger'
 import { formatMoneyFromNumber } from '@/lib/format'
-import { parseMoney, moneyToProto, computeCategoryRow, type NotDueInfo } from './expensesPanel/helpers'
+import { parseMoney, moneyToProto, computeCategoryRow, computeActualTotals, type NotDueInfo } from './expensesPanel/helpers'
 import { ExpenseChart, type ExpenseChartDatum } from './expensesPanel/ExpenseChart'
 import { CategoryCardMobile } from './expensesPanel/CategoryCardMobile'
 import { CategoryTableRow } from './expensesPanel/CategoryTableRow'
@@ -200,20 +200,8 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
   }
 
   // actual per category (total) and per person per category
-  // Fixed transactions only contribute to actual when marked as paid; variable always count
-  const txnActualByCat = new Map<number, number>()
-  const txnActualByPersonCat = new Map<string, number>()
-  for (const tx of transactions) {
-    if (!tx.categoryId) continue
-    if (tx.transactionTypeId === 1 && !tx.isPaid) continue
-    const amt = parseMoney(tx.amount?.units ?? 0n, tx.amount?.nanos ?? 0)
-    txnActualByCat.set(tx.categoryId, (txnActualByCat.get(tx.categoryId) ?? 0) + amt)
-    const personId = tx.paymentMethodId ? pmPersonMap.get(tx.paymentMethodId) : undefined
-    if (personId !== undefined) {
-      const key = `${tx.categoryId}:${personId}`
-      txnActualByPersonCat.set(key, (txnActualByPersonCat.get(key) ?? 0) + amt)
-    }
-  }
+  const { byCat: txnActualByCat, byPersonCat: txnActualByPersonCat, uncategorized: uncategorizedActual } =
+    computeActualTotals(transactions, pmPersonMap)
 
   // "Savings" system category auto-shows when savings sources exist
   const savingsCat = categories.find((c) => c.name === 'Savings' && c.isSystem)
@@ -346,9 +334,10 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
   const remainder = incomeTotal - totalCommitted
 
   // "Spent" counts unplanned actual spend in full (nothing to compare it
-  // against), and for planned categories only the amount that exceeds the
-  // plan — not the full actual — and only once the plan is actually exceeded.
-  let totalActualSpent = 0
+  // against — this includes uncategorized transactions, which can never
+  // have a plan), and for planned categories only the amount that exceeds
+  // the plan — not the full actual — and only once the plan is exceeded.
+  let totalActualSpent = uncategorizedActual
   for (const cat of visibleCats) {
     const { plannedTotal, actual } = computeCategoryRow(cat, categoryRowContext)
     if (plannedTotal <= 0) {
@@ -488,7 +477,7 @@ export function ExpensesPanel({ budgetProfileId, budgetPeriodId, canEdit = true 
                 })}
                 <TableCell align="right">{formatMoney(totalCommitted)}</TableCell>
                 <TableCell align="right">
-                  {formatMoney([...txnActualByCat.values()].reduce((a, b) => a + b, 0))}
+                  {formatMoney([...txnActualByCat.values()].reduce((a, b) => a + b, 0) + uncategorizedActual)}
                 </TableCell>
                 <TableCell />
               </TableRow>

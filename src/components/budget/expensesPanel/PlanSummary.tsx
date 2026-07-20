@@ -42,14 +42,12 @@ export function PlanSummary({ totalCommitted, remainder, totalActualSpent, forma
             {formatMoney(remainder)}
           </Typography>
         </Box>
-        {totalActualSpent > 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">{t('spent')}</Typography>
-            <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap', color: spentColor(totalActualSpent, totalCommitted) }}>
-              {formatMoney(totalActualSpent)}
-            </Typography>
-          </Box>
-        )}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">{t('spent')}</Typography>
+          <Typography variant="body2" fontWeight={700} sx={{ ml: 2, whiteSpace: 'nowrap', color: spentColor(totalActualSpent, totalCommitted) }}>
+            {formatMoney(totalActualSpent)}
+          </Typography>
+        </Box>
       </Box>
     </Box>
   )
