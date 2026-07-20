@@ -1,7 +1,39 @@
-import type { Category, ExpenseAllocation, FixedExpense } from '@/gen/wellspent/v1/budget_pb'
+import type { Category, ExpenseAllocation, FixedExpense, Transaction } from '@/gen/wellspent/v1/budget_pb'
 
 export function parseMoney(units: bigint, nanos: number): number {
   return Number(units) + nanos / 1e9
+}
+
+export interface ActualTotals {
+  byCat: Map<number, number>
+  byPersonCat: Map<string, number>
+  uncategorized: number
+}
+
+// Sums each transaction's actual amount by category (and by person+category).
+// Fixed transactions only contribute once marked paid; variable always count.
+// A transaction with no category can't be attributed to any category's plan,
+// but it's still real, fully-unplanned spend — tracked separately so it isn't
+// silently dropped from the plan summary's total.
+export function computeActualTotals(transactions: Transaction[], pmPersonMap: Map<string, bigint>): ActualTotals {
+  const byCat = new Map<number, number>()
+  const byPersonCat = new Map<string, number>()
+  let uncategorized = 0
+  for (const tx of transactions) {
+    if (tx.transactionTypeId === 1 && !tx.isPaid) continue
+    const amt = parseMoney(tx.amount?.units ?? 0n, tx.amount?.nanos ?? 0)
+    if (!tx.categoryId) {
+      uncategorized += amt
+      continue
+    }
+    byCat.set(tx.categoryId, (byCat.get(tx.categoryId) ?? 0) + amt)
+    const personId = tx.paymentMethodId ? pmPersonMap.get(tx.paymentMethodId) : undefined
+    if (personId !== undefined) {
+      const key = `${tx.categoryId}:${personId}`
+      byPersonCat.set(key, (byPersonCat.get(key) ?? 0) + amt)
+    }
+  }
+  return { byCat, byPersonCat, uncategorized }
 }
 
 export function moneyToProto(amount: number): { units: bigint; nanos: number } {
