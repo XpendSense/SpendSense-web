@@ -93,7 +93,7 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
     pmPersonMap.set(pm.id, pm.budgetPersonId)
   }
 
-  const { byCat: txnActualByCat, byPersonCat: txnActualByPersonCat } = computeActualTotals(transactions, pmPersonMap)
+  const { byCat: txnActualByCat, byPersonCat: txnActualByPersonCat, uncategorized: uncategorizedActual } = computeActualTotals(transactions, pmPersonMap)
 
   const allocMap = new Map<string, ExpenseAllocation>()
   for (const a of allocations) {
@@ -143,8 +143,14 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
   )
 
   const totalActual = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
-  const totalPlanned = visibleCats.reduce((sum, cat) => sum + getCategoryPlanned(cat.id), 0)
-  const remainder = totalPlanned - totalActual
+
+  let totalOverspent = uncategorizedActual
+  for (const cat of visibleCats) {
+    const actual = txnActualByCat.get(cat.id) ?? 0
+    const planned = getCategoryPlanned(cat.id)
+    if (planned <= 0) totalOverspent += actual
+    else if (actual > planned) totalOverspent += actual - planned
+  }
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
 
@@ -222,6 +228,18 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
               formatMoney={formatMoney}
             />
           ))}
+          <Box sx={{ pt: 1, borderTop: '2px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" fontWeight={700}>{t('total')}</Typography>
+              <Typography variant="body2" fontWeight={700}>{totalActual > 0 ? formatMoney(totalActual) : '—'}</Typography>
+            </Box>
+            {totalOverspent > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                <Typography variant="body2" fontWeight={700} color="error.main">{t('overPlan')}</Typography>
+                <Typography variant="body2" fontWeight={700} color="error.main">{formatMoney(totalOverspent)}</Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
       ) : (
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -261,31 +279,20 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
                 <TableCell />
                 <TableCell />
               </TableRow>
+              {totalOverspent > 0 && (
+                <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none', color: 'error.main' } }}>
+                  <TableCell />
+                  <TableCell>{t('overPlan')}</TableCell>
+                  <TableCell align="right">{formatMoney(totalOverspent)}</TableCell>
+                  <TableCell />
+                  <TableCell />
+                </TableRow>
+              )}
             </TableFooter>
           </Table>
         </TableContainer>
       )}
 
-      {visibleCats.length > 0 && (
-        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2" color="text.secondary">{t('planned')}</Typography>
-            <Typography variant="body2">{formatMoney(totalPlanned)}</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2" color="text.secondary">{t('actual')}</Typography>
-            <Typography variant="body2" color={totalActual > totalPlanned ? 'error.main' : 'text.primary'}>
-              {formatMoney(totalActual)}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid', borderColor: 'divider', pt: 0.5, mt: 0.5 }}>
-            <Typography variant="body2" fontWeight={600}>{t('remainder')}</Typography>
-            <Typography variant="body2" fontWeight={600} color={remainder < 0 ? 'error.main' : 'success.main'}>
-              {formatMoney(remainder)}
-            </Typography>
-          </Box>
-        </Box>
-      )}
     </Box>
   )
 }
