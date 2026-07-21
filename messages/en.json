@@ -120,6 +120,8 @@
       "total": "Total",
       "overPlan": "Over plan",
       "remainder": "Remainder",
+      "remainderActual": "Actual remaining",
+      "remainderPlan": "Plan remaining",
       "global": "global",
       "noData": "No spending data yet for this period."
     },

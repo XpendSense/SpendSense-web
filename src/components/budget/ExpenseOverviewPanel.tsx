@@ -75,8 +75,13 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
     queryKey: ['fixed-expenses', budgetProfileId],
     queryFn: () => client.listFixedExpenses({ budgetProfileId }),
   })
+  const { data: incomeData, isLoading: incomeLoading } = useQuery({
+    queryKey: ['income-entries', budgetPeriodId],
+    queryFn: () => client.listIncomeEntries({ budgetPeriodId: budgetPeriodId! }),
+    enabled: !!budgetPeriodId,
+  })
 
-  const isLoading = catsLoading || peopleLoading || allocsLoading || txnsLoading || pmLoading || savingsLoading || fixedExpensesLoading
+  const isLoading = catsLoading || peopleLoading || allocsLoading || txnsLoading || pmLoading || savingsLoading || fixedExpensesLoading || incomeLoading
   if (isLoading) return <Box sx={{ py: 2 }}><CircularProgress size={20} /></Box>
 
   const categories = categoriesData?.categories ?? []
@@ -142,9 +147,13 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
     fixedPlannedByCat.has(c.id),
   )
 
+  const incomeEntries = incomeData?.entries ?? []
+  const totalIncome = incomeEntries.reduce((sum, e) => sum + parseMoney(e.amount?.units ?? 0n, e.amount?.nanos ?? 0), 0)
+
   const totalActual = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
   const totalPlanned = visibleCats.reduce((sum, cat) => sum + getCategoryPlanned(cat.id), 0)
-  const remainder = totalPlanned - totalActual
+  const actualRemainder = totalIncome - totalActual
+  const plannedRemainder = totalIncome - totalPlanned
 
   let totalOverspent = uncategorizedActual
   for (const cat of visibleCats) {
@@ -239,10 +248,18 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
               <Typography variant="body2" color="text.secondary">{t('planned')}</Typography>
               <Typography variant="body2">{totalPlanned > 0 ? formatMoney(totalPlanned) : '—'}</Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" color={remainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{t('remainder')}</Typography>
-              <Typography variant="body2" color={remainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{formatMoney(remainder)}</Typography>
-            </Box>
+            {totalIncome > 0 && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color={actualRemainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{t('remainderActual')}</Typography>
+                  <Typography variant="body2" color={actualRemainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{formatMoney(actualRemainder)}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color={plannedRemainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{t('remainderPlan')}</Typography>
+                  <Typography variant="body2" color={plannedRemainder < 0 ? 'error.main' : 'success.main'} fontWeight={600}>{formatMoney(plannedRemainder)}</Typography>
+                </Box>
+              </>
+            )}
             {totalOverspent > 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" fontWeight={700} color="error.main">{t('overPlan')}</Typography>
@@ -289,13 +306,15 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
                 <TableCell align="right">{totalPlanned > 0 ? formatMoney(totalPlanned) : '—'}</TableCell>
                 <TableCell />
               </TableRow>
-              <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none', color: remainder < 0 ? 'error.main' : 'success.main' } }}>
-                <TableCell />
-                <TableCell>{t('remainder')}</TableCell>
-                <TableCell />
-                <TableCell align="right">{formatMoney(remainder)}</TableCell>
-                <TableCell />
-              </TableRow>
+              {totalIncome > 0 && (
+                <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none' } }}>
+                  <TableCell />
+                  <TableCell>{t('remainder')}</TableCell>
+                  <TableCell align="right" sx={{ color: actualRemainder < 0 ? 'error.main' : 'success.main' }}>{formatMoney(actualRemainder)}</TableCell>
+                  <TableCell align="right" sx={{ color: plannedRemainder < 0 ? 'error.main' : 'success.main' }}>{formatMoney(plannedRemainder)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              )}
               {totalOverspent > 0 && (
                 <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none', color: 'error.main' } }}>
                   <TableCell />

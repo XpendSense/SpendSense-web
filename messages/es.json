@@ -120,6 +120,8 @@
       "total": "Total",
       "overPlan": "Sobre el plan",
       "remainder": "Restante",
+      "remainderActual": "Sobrante actual",
+      "remainderPlan": "Sobrante del plan",
       "global": "global",
       "noData": "No hay datos de gastos aún para este período."
     },
