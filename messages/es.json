@@ -118,6 +118,7 @@
       "actual": "Real",
       "planned": "Planificado",
       "total": "Total",
+      "overPlan": "Sobre el plan",
       "global": "global",
       "noData": "No hay datos de gastos aún para este período."
     },

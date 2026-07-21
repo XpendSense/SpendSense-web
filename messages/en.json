@@ -118,6 +118,7 @@
       "actual": "Actual",
       "planned": "Planned",
       "total": "Total",
+      "overPlan": "Over plan",
       "global": "global",
       "noData": "No spending data yet for this period."
     },
