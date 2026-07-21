@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { TOKEN_COOKIE, isTokenExpired } from '@/lib/auth/token'
 import { AuthProvider } from '@/context/AuthContext'
 import { SnackbarProvider } from '@/components/ui/ErrorSnackbar'
-import { EmailVerificationBanner } from '@/components/auth/EmailVerificationBanner'
 
 export default async function AppLayout({
   children,
@@ -19,7 +18,6 @@ export default async function AppLayout({
   return (
     <SnackbarProvider>
       <AuthProvider token={token}>
-        <EmailVerificationBanner />
         {children}
       </AuthProvider>
     </SnackbarProvider>
