@@ -150,7 +150,7 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
   const incomeEntries = incomeData?.entries ?? []
   const totalIncome = incomeEntries.reduce((sum, e) => sum + parseMoney(e.amount?.units ?? 0n, e.amount?.nanos ?? 0), 0)
 
-  const totalActual = [...txnActualByCat.values()].reduce((a, b) => a + b, 0)
+  const totalActual = [...txnActualByCat.values()].reduce((a, b) => a + b, 0) + uncategorizedActual
   const totalPlanned = visibleCats.reduce((sum, cat) => sum + getCategoryPlanned(cat.id), 0)
   const actualRemainder = totalIncome - totalActual
   const plannedRemainder = totalIncome - totalPlanned
@@ -239,6 +239,12 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
               formatMoney={formatMoney}
             />
           ))}
+          {uncategorizedActual > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 0.75, bgcolor: 'action.hover', borderRadius: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t('uncategorized')}</Typography>
+              <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>{formatMoney(uncategorizedActual)}</Typography>
+            </Box>
+          )}
           <Box sx={{ pt: 1, borderTop: '2px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" fontWeight={700}>{t('total')}</Typography>
@@ -297,6 +303,25 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
                   formatMoney={formatMoney}
                 />
               ))}
+              {uncategorizedActual > 0 && (
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ py: 0.5, pr: 0 }} />
+                  <TableCell sx={{ py: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      {t('uncategorized')}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={{ py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                      {formatMoney(uncategorizedActual)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={{ py: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary">—</Typography>
+                  </TableCell>
+                  <TableCell sx={{ py: 0.5 }} />
+                </TableRow>
+              )}
             </TableBody>
             <TableFooter>
               <TableRow sx={{ '& td': footerCellSx }}>

@@ -118,11 +118,12 @@
       "actual": "Actual",
       "planned": "Planned",
       "total": "Total",
-      "overPlan": "Over plan",
+      "overPlan": "Unplanned total",
       "remainder": "Remainder",
       "remainderActual": "Actual remaining",
       "remainderPlan": "Plan remaining",
       "global": "global",
+      "uncategorized": "Uncategorized",
       "noData": "No spending data yet for this period."
     },
     "review": {

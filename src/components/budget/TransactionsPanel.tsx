@@ -153,10 +153,9 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     .reduce((sum, tx) => sum + txAmount(tx), 0)
   const grandTotal = fixedPlannedTotal + variableTotal
 
-  // Per-transaction IDs where the transaction is the one that pushed its category
-  // over the total plan (expense allocations + fixed expense planned amounts).
-  // Walks variable transactions chronologically per category; includes spent
-  // transactions from the moment the running total first exceeds the plan.
+  // IDs of all variable transactions in categories where total actual spending
+  // exceeds the combined plan (expense allocations + fixed planned amounts).
+  // Uncategorized transactions are never included — they have no plan to exceed.
   const overBudgetTxIds = (() => {
     const plannedByCat = new Map<number, number>()
     ;(allocationsData?.allocations ?? []).forEach((a: ExpenseAllocation) => {
@@ -172,25 +171,17 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
       if (!fe.categoryId) return
       plannedByCat.set(fe.categoryId, (plannedByCat.get(fe.categoryId) ?? 0) + fixedExpensePlannedAmount(fe))
     })
-    // Group variable txs by category, then walk chronologically. Excluded
-    // transactions (manually flagged, or Income) never count toward this.
     const txsByCat = new Map<number, Transaction[]>()
     variableTxs.filter((tx) => !isTransactionExcluded(tx, incomeCategoryId)).forEach((tx) => {
+      if (!tx.categoryId) return
       if (!txsByCat.has(tx.categoryId)) txsByCat.set(tx.categoryId, [])
       txsByCat.get(tx.categoryId)!.push(tx)
     })
     const ids = new Set<string>()
     txsByCat.forEach((txs, catId) => {
       const planned = plannedByCat.get(catId) ?? 0
-      const sorted = [...txs].sort(
-        (a, b) => Number(a.date?.seconds ?? 0n) - Number(b.date?.seconds ?? 0n) || a.id.localeCompare(b.id)
-      )
-      let running = 0
-      for (const tx of sorted) {
-        running += txAmount(tx)
-        // Include spent transactions from the point the running total crosses the plan
-        if (running > planned && txAmount(tx) > 0) ids.add(tx.id)
-      }
+      const actual = txs.reduce((sum, tx) => sum + txAmount(tx), 0)
+      if (actual > planned) txs.forEach((tx) => ids.add(tx.id))
     })
     return ids
   })()

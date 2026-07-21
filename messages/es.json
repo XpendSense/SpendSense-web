@@ -118,11 +118,12 @@
       "actual": "Real",
       "planned": "Planificado",
       "total": "Total",
-      "overPlan": "Sobre el plan",
+      "overPlan": "Total no planificado",
       "remainder": "Restante",
       "remainderActual": "Sobrante actual",
       "remainderPlan": "Sobrante del plan",
       "global": "global",
+      "uncategorized": "Sin categoría",
       "noData": "No hay datos de gastos aún para este período."
     },
     "review": {
