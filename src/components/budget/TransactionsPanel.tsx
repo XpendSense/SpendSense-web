@@ -7,12 +7,12 @@ import { usePathname, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BudgetService } from '@/gen/wellspent/v1/budget_connect'
-import type { Transaction, FixedExpense, ExpenseAllocation } from '@/gen/wellspent/v1/budget_pb'
+import type { Transaction, FixedExpense } from '@/gen/wellspent/v1/budget_pb'
 import { useClient } from '@/hooks/useClient'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useViewPreference } from '@/hooks/useViewPreference'
 import { formatMoneyFromNumber } from '@/lib/format'
-import { txAmount, txPlannedAmount, fixedExpensePlannedAmount, isTransactionExcluded, resolveSwipeDirection, buildPendingReviewMatchMap } from './transactionsPanel/helpers'
+import { txAmount, txPlannedAmount, isTransactionExcluded, resolveSwipeDirection, buildPendingReviewMatchMap, computeOverBudgetTxIds } from './transactionsPanel/helpers'
 import { TransactionTable } from './transactionsPanel/TransactionTable'
 import { AddTransactionModal } from './modals/AddTransactionModal'
 import { EditTransactionModal } from './modals/EditTransactionModal'
@@ -153,38 +153,13 @@ export function TransactionsPanel({ budgetPeriodId, budgetProfileId, isEditable 
     .reduce((sum, tx) => sum + txAmount(tx), 0)
   const grandTotal = fixedPlannedTotal + variableTotal
 
-  // IDs of all variable transactions in categories where total actual spending
-  // exceeds the combined plan (expense allocations + fixed planned amounts).
-  // Uncategorized transactions are never included — they have no plan to exceed.
-  const overBudgetTxIds = (() => {
-    const plannedByCat = new Map<number, number>()
-    ;(allocationsData?.allocations ?? []).forEach((a: ExpenseAllocation) => {
-      const p = Number(a.plannedAmount?.units ?? 0n) + (a.plannedAmount?.nanos ?? 0) / 1e9
-      plannedByCat.set(a.categoryId, (plannedByCat.get(a.categoryId) ?? 0) + p)
-    })
-    fixedTxs.filter((tx) => !isTransactionExcluded(tx, incomeCategoryId)).forEach((tx) => {
-      if (!tx.categoryId) return
-      plannedByCat.set(tx.categoryId, (plannedByCat.get(tx.categoryId) ?? 0) + txPlannedAmount(tx))
-    })
-    const fixedTxExpenseIds = new Set(fixedTxs.map((tx) => tx.fixedExpenseId).filter(Boolean))
-    ;(fixedExpensesData?.expenses ?? []).filter((fe) => fe.isActive && !fixedTxExpenseIds.has(fe.id)).forEach((fe) => {
-      if (!fe.categoryId) return
-      plannedByCat.set(fe.categoryId, (plannedByCat.get(fe.categoryId) ?? 0) + fixedExpensePlannedAmount(fe))
-    })
-    const txsByCat = new Map<number, Transaction[]>()
-    variableTxs.filter((tx) => !isTransactionExcluded(tx, incomeCategoryId)).forEach((tx) => {
-      if (!tx.categoryId) return
-      if (!txsByCat.has(tx.categoryId)) txsByCat.set(tx.categoryId, [])
-      txsByCat.get(tx.categoryId)!.push(tx)
-    })
-    const ids = new Set<string>()
-    txsByCat.forEach((txs, catId) => {
-      const planned = plannedByCat.get(catId) ?? 0
-      const actual = txs.reduce((sum, tx) => sum + txAmount(tx), 0)
-      if (actual > planned) txs.forEach((tx) => ids.add(tx.id))
-    })
-    return ids
-  })()
+  const overBudgetTxIds = computeOverBudgetTxIds(
+    variableTxs,
+    fixedTxs,
+    fixedExpensesData?.expenses ?? [],
+    allocationsData?.allocations ?? [],
+    incomeCategoryId,
+  )
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['transactions', budgetPeriodId] })
 

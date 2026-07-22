@@ -1,4 +1,4 @@
-import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense, TransactionReview } from '@/gen/wellspent/v1/budget_pb'
+import type { Transaction, Category, PaymentMethod, BudgetPerson, FixedExpense, TransactionReview, ExpenseAllocation } from '@/gen/wellspent/v1/budget_pb'
 import { formatMoneyFromNumber } from '@/lib/format'
 
 export type SortKey = 'name' | 'day' | 'amount' | 'category' | 'paymentMethod' | 'owner'
@@ -64,6 +64,59 @@ export function txPlannedAmount(t: Transaction): number {
 
 export function fixedExpensePlannedAmount(fe: FixedExpense): number {
   return Number(fe.plannedAmount?.units ?? 0n) + (fe.plannedAmount?.nanos ?? 0) / 1e9
+}
+
+// IDs of variable transactions that pushed their category's running total past
+// its combined plan (expense allocations + fixed planned amounts), walked
+// chronologically per category — only the transactions from the point the
+// running total first crosses the plan onward are flagged, not every
+// transaction in an over-budget category. A category with no plan at all (no
+// allocation and no fixed expense assigned to it) is skipped entirely, same
+// as an uncategorized transaction: there's nothing to exceed, so it must not
+// trivially count as "over budget" the moment any spending occurs.
+export function computeOverBudgetTxIds(
+  variableTxs: Transaction[],
+  fixedTxs: Transaction[],
+  fixedExpenses: FixedExpense[],
+  allocations: ExpenseAllocation[],
+  incomeCategoryId?: number,
+): Set<string> {
+  const plannedByCat = new Map<number, number>()
+  allocations.forEach((a) => {
+    const p = Number(a.plannedAmount?.units ?? 0n) + (a.plannedAmount?.nanos ?? 0) / 1e9
+    plannedByCat.set(a.categoryId, (plannedByCat.get(a.categoryId) ?? 0) + p)
+  })
+  fixedTxs.filter((tx) => !isTransactionExcluded(tx, incomeCategoryId)).forEach((tx) => {
+    if (!tx.categoryId) return
+    plannedByCat.set(tx.categoryId, (plannedByCat.get(tx.categoryId) ?? 0) + txPlannedAmount(tx))
+  })
+  const fixedTxExpenseIds = new Set(fixedTxs.map((tx) => tx.fixedExpenseId).filter(Boolean))
+  fixedExpenses.filter((fe) => fe.isActive && !fixedTxExpenseIds.has(fe.id)).forEach((fe) => {
+    if (!fe.categoryId) return
+    plannedByCat.set(fe.categoryId, (plannedByCat.get(fe.categoryId) ?? 0) + fixedExpensePlannedAmount(fe))
+  })
+
+  const txsByCat = new Map<number, Transaction[]>()
+  variableTxs.filter((tx) => !isTransactionExcluded(tx, incomeCategoryId)).forEach((tx) => {
+    if (!tx.categoryId) return
+    if (!txsByCat.has(tx.categoryId)) txsByCat.set(tx.categoryId, [])
+    txsByCat.get(tx.categoryId)!.push(tx)
+  })
+
+  const ids = new Set<string>()
+  txsByCat.forEach((txs, catId) => {
+    if (!plannedByCat.has(catId)) return
+    const planned = plannedByCat.get(catId)!
+    const sorted = [...txs].sort(
+      (a, b) => Number(a.date?.seconds ?? 0n) - Number(b.date?.seconds ?? 0n) || a.id.localeCompare(b.id)
+    )
+    let running = 0
+    for (const tx of sorted) {
+      running += txAmount(tx)
+      if (running > planned && txAmount(tx) > 0) ids.add(tx.id)
+    }
+  })
+  return ids
 }
 
 function monthsBetweenDates(from: Date, to: Date): number {

@@ -8,8 +8,9 @@ import {
   isTransactionExcluded,
   resolveSwipeDirection,
   buildPendingReviewMatchMap,
+  computeOverBudgetTxIds,
 } from '../helpers'
-import type { Transaction, Category, PaymentMethod, BudgetPerson, TransactionReview } from '@/gen/wellspent/v1/budget_pb'
+import type { Transaction, Category, PaymentMethod, BudgetPerson, TransactionReview, FixedExpense, ExpenseAllocation } from '@/gen/wellspent/v1/budget_pb'
 
 function money(units: bigint): { units: bigint; nanos: number } {
   return { units, nanos: 0 }
@@ -35,6 +36,31 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     isExcluded: false,
     ...overrides,
   } as Transaction
+}
+
+function makeAllocation(overrides: Partial<ExpenseAllocation> = {}): ExpenseAllocation {
+  return {
+    id: 1n,
+    budgetProfileId: 'profile-1',
+    categoryId: 1,
+    budgetPersonId: 0n,
+    plannedAmount: money(100n),
+    ...overrides,
+  } as ExpenseAllocation
+}
+
+function makeFixedExpense(overrides: Partial<FixedExpense> = {}): FixedExpense {
+  return {
+    id: 'fe-1',
+    budgetProfileId: 'profile-1',
+    name: 'Rent',
+    plannedAmount: money(0n),
+    categoryId: 0,
+    paymentMethodId: '',
+    dayOfMonth: 1,
+    isActive: true,
+    ...overrides,
+  } as FixedExpense
 }
 
 const category: Category = { id: 1, name: 'Food', typeId: 1, isSystem: false, color: '' }
@@ -283,5 +309,65 @@ describe('groupTransactionsByDay', () => {
 
   it('returns no groups for an empty transaction list', () => {
     expect(groupTransactionsByDay([], 'day', 'asc', categoryMap, methodMap, personMap)).toEqual([])
+  })
+})
+
+describe('computeOverBudgetTxIds', () => {
+  const day1 = BigInt(Date.UTC(2026, 11, 1) / 1000)
+  const day2 = BigInt(Date.UTC(2026, 11, 2) / 1000)
+  const day3 = BigInt(Date.UTC(2026, 11, 3) / 1000)
+
+  it('does not flag a category with no plan at all, no matter how much was spent', () => {
+    // Regression: a category with zero contributing plan (no allocation, no
+    // fixed expense) must never trivially "exceed" the moment any spending
+    // occurs — that's indistinguishable from an uncategorized transaction.
+    const tx = makeTransaction({ id: 'a', categoryId: 1, amount: money(50n), date: { seconds: day1, nanos: 0 } })
+    const ids = computeOverBudgetTxIds([tx], [], [], [])
+    expect(ids.size).toBe(0)
+  })
+
+  it('flags only the transactions from the point the running total first crosses the plan', () => {
+    const a = makeTransaction({ id: 'a', categoryId: 1, amount: money(40n), date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', categoryId: 1, amount: money(40n), date: { seconds: day2, nanos: 0 } })
+    const c = makeTransaction({ id: 'c', categoryId: 1, amount: money(40n), date: { seconds: day3, nanos: 0 } })
+    // plan = 100; running: a=40, b=80, c=120 -> only c crosses the line
+    const ids = computeOverBudgetTxIds([a, b, c], [], [], [makeAllocation({ categoryId: 1, plannedAmount: money(100n) })])
+    expect(ids).toEqual(new Set(['c']))
+  })
+
+  it('does not flag a received (negative) transaction even if it lands after the plan is crossed', () => {
+    const a = makeTransaction({ id: 'a', categoryId: 1, amount: money(150n), date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', categoryId: 1, amount: money(-20n), date: { seconds: day2, nanos: 0 } })
+    const ids = computeOverBudgetTxIds([a, b], [], [], [makeAllocation({ categoryId: 1, plannedAmount: money(100n) })])
+    expect(ids).toEqual(new Set(['a']))
+  })
+
+  it('ignores uncategorized transactions', () => {
+    const tx = makeTransaction({ id: 'a', categoryId: 0, amount: money(999n), date: { seconds: day1, nanos: 0 } })
+    const ids = computeOverBudgetTxIds([tx], [], [], [makeAllocation({ categoryId: 1, plannedAmount: money(1n) })])
+    expect(ids.size).toBe(0)
+  })
+
+  it('ignores excluded transactions when computing the running total', () => {
+    const excluded = makeTransaction({ id: 'a', categoryId: 1, amount: money(200n), isExcluded: true, date: { seconds: day1, nanos: 0 } })
+    const counted = makeTransaction({ id: 'b', categoryId: 1, amount: money(50n), date: { seconds: day2, nanos: 0 } })
+    const ids = computeOverBudgetTxIds([excluded, counted], [], [], [makeAllocation({ categoryId: 1, plannedAmount: money(100n) })])
+    expect(ids.size).toBe(0)
+  })
+
+  it('includes an active fixed expense with no transaction yet this period in the plan', () => {
+    const tx = makeTransaction({ id: 'a', categoryId: 1, amount: money(150n), date: { seconds: day1, nanos: 0 } })
+    const fe = makeFixedExpense({ id: 'fe-1', categoryId: 1, isActive: true, plannedAmount: money(100n) })
+    // plan = 0 (no allocation) + 100 (fixed expense) = 100; actual 150 crosses it
+    const ids = computeOverBudgetTxIds([tx], [], [fe], [])
+    expect(ids).toEqual(new Set(['a']))
+  })
+
+  it('adds a fixed transaction planned amount to the category plan', () => {
+    const variableTx = makeTransaction({ id: 'a', categoryId: 1, amount: money(150n), transactionTypeId: 2, date: { seconds: day1, nanos: 0 } })
+    const fixedTx = makeTransaction({ id: 'fixed-1', categoryId: 1, transactionTypeId: 1, plannedAmount: money(100n) })
+    // plan = 100 (fixed tx planned amount); actual 150 crosses it
+    const ids = computeOverBudgetTxIds([variableTx], [fixedTx], [], [])
+    expect(ids).toEqual(new Set(['a']))
   })
 })
