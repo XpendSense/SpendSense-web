@@ -317,13 +317,14 @@ describe('computeOverBudgetTxIds', () => {
   const day2 = BigInt(Date.UTC(2026, 11, 2) / 1000)
   const day3 = BigInt(Date.UTC(2026, 11, 3) / 1000)
 
-  it('does not flag a category with no plan at all, no matter how much was spent', () => {
-    // Regression: a category with zero contributing plan (no allocation, no
-    // fixed expense) must never trivially "exceed" the moment any spending
-    // occurs — that's indistinguishable from an uncategorized transaction.
-    const tx = makeTransaction({ id: 'a', categoryId: 1, amount: money(50n), date: { seconds: day1, nanos: 0 } })
-    const ids = computeOverBudgetTxIds([tx], [], [], [])
-    expect(ids.size).toBe(0)
+  it('defaults a category with no plan at all to a $0 plan, flagging spend from the first transaction', () => {
+    // A categorized transaction in a category nobody ever budgeted for is, by
+    // definition, over budget — distinct from a truly uncategorized transaction
+    // (categoryId 0), which has no category to attribute the overage to.
+    const a = makeTransaction({ id: 'a', categoryId: 1, amount: money(50n), date: { seconds: day1, nanos: 0 } })
+    const b = makeTransaction({ id: 'b', categoryId: 1, amount: money(20n), date: { seconds: day2, nanos: 0 } })
+    const ids = computeOverBudgetTxIds([a, b], [], [], [])
+    expect(ids).toEqual(new Set(['a', 'b']))
   })
 
   it('flags only the transactions from the point the running total first crosses the plan', () => {

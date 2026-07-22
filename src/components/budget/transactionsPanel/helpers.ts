@@ -70,10 +70,11 @@ export function fixedExpensePlannedAmount(fe: FixedExpense): number {
 // its combined plan (expense allocations + fixed planned amounts), walked
 // chronologically per category — only the transactions from the point the
 // running total first crosses the plan onward are flagged, not every
-// transaction in an over-budget category. A category with no plan at all (no
-// allocation and no fixed expense assigned to it) is skipped entirely, same
-// as an uncategorized transaction: there's nothing to exceed, so it must not
-// trivially count as "over budget" the moment any spending occurs.
+// transaction in an over-budget category. A category with no plan at all
+// defaults to a $0 plan, same as before — any spending in a category that was
+// never budgeted for is, by definition, over budget starting from its first
+// transaction. Only truly uncategorized transactions (no categoryId at all)
+// are excluded, since there's no category to attribute the overage to.
 export function computeOverBudgetTxIds(
   variableTxs: Transaction[],
   fixedTxs: Transaction[],
@@ -105,8 +106,7 @@ export function computeOverBudgetTxIds(
 
   const ids = new Set<string>()
   txsByCat.forEach((txs, catId) => {
-    if (!plannedByCat.has(catId)) return
-    const planned = plannedByCat.get(catId)!
+    const planned = plannedByCat.get(catId) ?? 0
     const sorted = [...txs].sort(
       (a, b) => Number(a.date?.seconds ?? 0n) - Number(b.date?.seconds ?? 0n) || a.id.localeCompare(b.id)
     )
