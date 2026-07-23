@@ -167,12 +167,13 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
   const actualRemainder = totalIncome - totalActual
   const plannedRemainder = totalIncome - totalPlanned
 
-  let totalOverspent = uncategorizedActual
+  let totalOverBudget = 0
+  let totalUnplanned = uncategorizedActual
   for (const cat of visibleCats) {
     const actual = txnActualByCat.get(cat.id) ?? 0
     const planned = getCategoryPlanned(cat.id)
-    if (planned <= 0) totalOverspent += actual
-    else if (actual > planned) totalOverspent += actual - planned
+    if (planned <= 0) totalUnplanned += actual
+    else if (actual > planned) totalOverBudget += actual - planned
   }
 
   const footerCellSx = { borderTop: '2px solid', borderColor: 'divider', fontSize: '0.95rem', fontWeight: 700 }
@@ -282,10 +283,16 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
                 </Box>
               </>
             )}
-            {totalOverspent > 0 && (
+            {totalOverBudget > 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" fontWeight={700} color="error.main">{t('overPlan')}</Typography>
-                <Typography variant="body2" fontWeight={700} color="error.main">{formatMoney(totalOverspent)}</Typography>
+                <Typography variant="body2" fontWeight={700} color="error.main">{t('overBudget')}</Typography>
+                <Typography variant="body2" fontWeight={700} color="error.main">{formatMoney(totalOverBudget)}</Typography>
+              </Box>
+            )}
+            {totalUnplanned > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" fontWeight={700} color="warning.main">{t('unplanned')}</Typography>
+                <Typography variant="body2" fontWeight={700} color="warning.main">{formatMoney(totalUnplanned)}</Typography>
               </Box>
             )}
           </Box>
@@ -360,11 +367,20 @@ export function ExpenseOverviewPanel({ budgetProfileId, budgetPeriodId }: Props)
                   <TableCell />
                 </TableRow>
               )}
-              {totalOverspent > 0 && (
+              {totalOverBudget > 0 && (
                 <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none', color: 'error.main' } }}>
                   <TableCell />
-                  <TableCell>{t('overPlan')}</TableCell>
-                  <TableCell align="right">{formatMoney(totalOverspent)}</TableCell>
+                  <TableCell>{t('overBudget')}</TableCell>
+                  <TableCell align="right">{formatMoney(totalOverBudget)}</TableCell>
+                  <TableCell />
+                  <TableCell />
+                </TableRow>
+              )}
+              {totalUnplanned > 0 && (
+                <TableRow sx={{ '& td': { ...footerCellSx, borderTop: 'none', color: 'warning.main' } }}>
+                  <TableCell />
+                  <TableCell>{t('unplanned')}</TableCell>
+                  <TableCell align="right">{formatMoney(totalUnplanned)}</TableCell>
                   <TableCell />
                   <TableCell />
                 </TableRow>
